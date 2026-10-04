@@ -1,0 +1,9 @@
+crm_back/settings.py
+.sqlite3
+media/
+.env
+test_subscription_system.py
+__pycache__/
+trainers/migrations/
+venv/
+venv312/

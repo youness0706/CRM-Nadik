@@ -1,0 +1,6 @@
+media/
+migrations/
+*.pyc
+settings.py
+venv/
+venv312/

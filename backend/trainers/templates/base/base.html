@@ -1,0 +1,173 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <title>{% block title %}{% endblock %}</title>
+
+    <!-- Custom fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+    <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/MaterialDesign-Webfont/5.3.45/css/materialdesignicons.css" crossorigin="anonymous" />
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Select2 -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+
+    <!-- Custom styles -->
+    <style type="text/css">
+        * {
+            font-family: 'Cairo', 'Nunito', sans-serif;
+        }
+
+        body {
+            background-color: #f8f9fc;
+        }
+
+        .card {
+            box-shadow: 0 20px 27px 0 rgb(0 0 0 / 5%);
+            border: none;
+            border-radius: 0.35rem;
+        }
+
+        .avatar-md {
+            height: 5rem;
+            width: 5rem;
+        }
+
+        .fs-19 {
+            font-size: 19px;
+        }
+
+        .primary-link {
+            color: #314047;
+            transition: all .5s ease;
+        }
+
+        a {
+            color: #02af74;
+            text-decoration: none;
+        }
+
+        .bookmark-post .favorite-icon a, 
+        .job-box.bookmark-post .favorite-icon a {
+            background-color: #da3746;
+            color: #fff;
+            border-color: danger;
+        }
+
+        .favorite-icon a {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            font-size: 18px;
+            line-height: 30px;
+            text-align: center;
+            border: 1px solid #eff0f2;
+            border-radius: 6px;
+            color: rgba(173,181,189,.55);
+            transition: all .5s ease;
+        }
+
+        .candidate-list-box .favorite-icon {
+            position: absolute;
+            right: 22px;
+            top: 22px;
+        }
+
+        .fs-14 {
+            font-size: 14px;
+        }
+
+        .bg-soft-secondary {
+            background-color: rgba(116,120,141,.15)!important;
+            color: #74788d!important;
+        }
+
+        /* Navbar styling */
+        .navbar {
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+        }
+
+        /* Ensure dropdowns work properly */
+        .dropdown-menu {
+            z-index: 1050;
+        }
+
+        /* Sidebar toggle animation */
+        .navbar-toggler {
+            border: none;
+            padding: 0.25rem 0.75rem;
+        }
+
+        .navbar-toggler:focus {
+            box-shadow: none;
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body class="content">
+    {% if user.is_authenticated %}
+    
+    {% include './sidebar.html' %}
+    {% include './subscription_widget.html' %}
+
+    {% endif %}
+    
+    {% block content %}{% endblock %}
+
+    <!-- jQuery (full version, not slim) - REQUIRED FIRST -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    
+    <!-- Bootstrap 5 Bundle (includes Popper) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Select2 -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <!-- Chart.js (only if needed) -->
+    {% block chart_js %}{% endblock %}
+
+    <!-- Custom scripts -->
+    <script>
+        // Initialize Bootstrap components
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize all tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+
+            // Initialize all popovers
+            var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+            var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
+                return new bootstrap.Popover(popoverTriggerEl);
+            });
+
+            // Initialize Select2 if present
+            if (typeof $.fn.select2 !== 'undefined') {
+                $('.select2').select2({
+                    theme: 'bootstrap-5'
+                });
+            }
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+
+</body>
+
+</html>
