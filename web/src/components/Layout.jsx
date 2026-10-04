@@ -14,6 +14,7 @@ import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useNavigate, useLocation } from 'react-router-dom';
 
+
 const drawerWidth = 260;
 
 export default function Layout({ children }) {
