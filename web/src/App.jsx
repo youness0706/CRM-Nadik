@@ -15,59 +15,89 @@ import Layout from './components/Layout';
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#1565c0',
-      light: '#5e92f3',
-      dark: '#003c8f',
+      main: '#006064', // Deep Trustworthy Teal for Nadik
+      light: '#428e92',
+      dark: '#00363a',
+      contrastText: '#ffffff',
     },
     secondary: {
-      main: '#7c4dff',
+      main: '#ff6f00', // Amber/Orange Accent
+      light: '#ffa040',
+      dark: '#c43e00',
+      contrastText: '#ffffff',
     },
     success: {
       main: '#2e7d32',
     },
+    error: {
+      main: '#c62828',
+    },
+    warning: {
+      main: '#f57f17',
+    },
     background: {
-      default: '#f0f2f5',
+      default: '#f4f6f8',
+      paper: '#ffffff',
+    },
+    text: {
+      primary: '#1c242c',
+      secondary: '#5c6e81',
     },
   },
   typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+    h4: {
+      fontWeight: 700,
+      letterSpacing: '-0.02em',
+    },
+    h5: {
+      fontWeight: 600,
+      letterSpacing: '-0.01em',
+    },
+    button: {
+      fontWeight: 600,
+      textTransform: 'none',
+    },
+  },
+  shape: {
+    borderRadius: 8,
   },
   components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          boxShadow: 'none',
+          '&:hover': {
+            boxShadow: '0px 2px 4px rgba(0,0,0,0.1)',
+          },
+        },
+      },
+    },
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: 12,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          boxShadow: '0px 2px 8px rgba(0,0,0,0.04)',
+          border: '1px solid #e0e5ea',
         },
       },
     },
     MuiPaper: {
       styleOverrides: {
         root: {
-          borderRadius: 12,
-        },
-      },
-    },
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: 8,
-          textTransform: 'none',
-          fontWeight: 600,
-        },
-      },
-    },
-    MuiChip: {
-      styleOverrides: {
-        root: {
-          fontWeight: 500,
+          boxShadow: '0px 2px 8px rgba(0,0,0,0.04)',
         },
       },
     },
     MuiTableCell: {
       styleOverrides: {
         head: {
-          fontWeight: 700,
+          fontWeight: 600,
+          backgroundColor: '#f8fafc',
+          color: '#475569',
+          borderBottom: '2px solid #e2e8f0',
+        },
+        root: {
+          borderBottom: '1px solid #e2e8f0',
         },
       },
     },
@@ -75,7 +105,7 @@ const theme = createTheme({
 });
 
 function ProtectedRoute({ children }) {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('access_token');
   if (!token) return <Navigate to="/" replace />;
   return <Layout>{children}</Layout>;
 }

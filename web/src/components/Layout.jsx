@@ -13,7 +13,7 @@ import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useNavigate, useLocation } from 'react-router-dom';
-
+import apiClient from '../services/api';
 
 const drawerWidth = 260;
 
@@ -24,39 +24,53 @@ export default function Layout({ children }) {
 
   const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/');
+  const handleLogout = async () => {
+    try {
+      // Optional: Call backend logout if it exists
+      await apiClient.post('/auth/logout/');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      navigate('/');
+    }
   };
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Members', icon: <PeopleIcon />, path: '/members' },
-    { text: 'Staff', icon: <GroupIcon />, path: '/staff' },
     { text: 'Payments', icon: <PaymentIcon />, path: '/payments' },
-    { text: 'Events', icon: <EventIcon />, path: '/events' },
+    { text: 'Finance', icon: <AccountBalanceIcon />, path: '/financial' },
     { text: 'Expenses', icon: <ReceiptLongIcon />, path: '/expenses' },
-    { text: 'Financial', icon: <AccountBalanceIcon />, path: '/financial' },
+    { text: 'Events', icon: <EventIcon />, path: '/events' },
+    { text: 'Staff', icon: <GroupIcon />, path: '/staff' },
   ];
 
   const drawer = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Logo / Brand */}
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>C</Avatar>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>
+      {/* Brand Header */}
+      <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Avatar sx={{ bgcolor: 'primary.main', width: 44, height: 44, fontWeight: 'bold' }}>
+          N
+        </Avatar>
         <Box>
-          <Typography variant="subtitle1" fontWeight="bold">CRM System</Typography>
-          <Typography variant="caption" color="text.secondary">Management Panel</Typography>
+          <Typography variant="h6" fontWeight="bold" color="primary.dark">
+            Nadik
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: -0.5 }}>
+            Management Panel
+          </Typography>
         </Box>
       </Box>
-      <Divider />
+      <Divider sx={{ mb: 2 }} />
 
       {/* Navigation */}
-      <List sx={{ flexGrow: 1, px: 1, pt: 1 }}>
+      <List sx={{ flexGrow: 1, px: 2 }}>
         {menuItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
-            <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
+            <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
               <ListItemButton
                 selected={isActive}
                 onClick={() => {
@@ -65,18 +79,27 @@ export default function Layout({ children }) {
                 }}
                 sx={{
                   borderRadius: 2,
+                  py: 1,
                   '&.Mui-selected': {
                     backgroundColor: 'primary.main',
                     color: 'white',
                     '&:hover': { backgroundColor: 'primary.dark' },
                     '& .MuiListItemIcon-root': { color: 'white' },
                   },
+                  '&:hover': {
+                    backgroundColor: 'rgba(0, 96, 100, 0.08)',
+                  }
                 }}
               >
-                <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                <ListItemIcon sx={{ minWidth: 40, color: isActive ? 'white' : 'text.secondary' }}>
+                  {item.icon}
+                </ListItemIcon>
                 <ListItemText
                   primary={item.text}
-                  primaryTypographyProps={{ fontWeight: isActive ? 700 : 500, fontSize: '0.9rem' }}
+                  primaryTypographyProps={{ 
+                    fontWeight: isActive ? 600 : 500, 
+                    fontSize: '0.95rem' 
+                  }}
                 />
               </ListItemButton>
             </ListItem>
@@ -84,13 +107,13 @@ export default function Layout({ children }) {
         })}
       </List>
 
-      {/* Logout */}
+      {/* Footer Actions */}
       <Divider />
-      <List sx={{ px: 1, pb: 1 }}>
+      <List sx={{ px: 2, pb: 2, pt: 2 }}>
         <ListItem disablePadding>
-          <ListItemButton onClick={handleLogout} sx={{ borderRadius: 2 }}>
-            <ListItemIcon sx={{ minWidth: 40 }}><LogoutIcon /></ListItemIcon>
-            <ListItemText primary="Logout" primaryTypographyProps={{ fontWeight: 500, fontSize: '0.9rem' }} />
+          <ListItemButton onClick={handleLogout} sx={{ borderRadius: 2, color: 'error.main' }}>
+            <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}><LogoutIcon /></ListItemIcon>
+            <ListItemText primary="Sign Out" primaryTypographyProps={{ fontWeight: 600, fontSize: '0.95rem' }} />
           </ListItemButton>
         </ListItem>
       </List>
@@ -105,7 +128,7 @@ export default function Layout({ children }) {
         sx={{
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           ml: { sm: `${drawerWidth}px` },
-          backgroundColor: 'white',
+          backgroundColor: 'background.paper',
           color: 'text.primary',
           borderBottom: '1px solid',
           borderColor: 'divider',
@@ -114,14 +137,13 @@ export default function Layout({ children }) {
         <Toolbar>
           <IconButton
             color="inherit"
-            aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
             sx={{ mr: 2, display: { sm: 'none' } }}
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" fontWeight="bold" noWrap component="div">
+          <Typography variant="h6" fontWeight="600" component="div">
             {menuItems.find(i => i.path === location.pathname)?.text || 'Dashboard'}
           </Typography>
         </Toolbar>
@@ -143,7 +165,7 @@ export default function Layout({ children }) {
           variant="permanent"
           sx={{
             display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, border: 'none', boxShadow: '2px 0 8px rgba(0,0,0,0.06)' },
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, borderRight: '1px solid', borderColor: 'divider' },
           }}
           open
         >
@@ -152,7 +174,7 @@ export default function Layout({ children }) {
       </Box>
       <Box
         component="main"
-        sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` }, minHeight: '100vh' }}
+        sx={{ flexGrow: 1, p: { xs: 2, sm: 4 }, width: { sm: `calc(100% - ${drawerWidth}px)` }, minHeight: '100vh' }}
       >
         <Toolbar />
         {children}

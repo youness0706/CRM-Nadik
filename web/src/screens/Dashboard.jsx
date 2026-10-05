@@ -17,23 +17,23 @@ import apiClient from '../services/api';
 
 function StatCard({ icon, title, value, color = 'primary.main', subtitle }) {
   return (
-    <Card sx={{ height: '100%', borderTop: 3, borderColor: color }}>
+    <Card sx={{ height: '100%', borderTop: 4, borderColor: color }}>
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box>
-            <Typography color="text.secondary" variant="body2" gutterBottom>
+            <Typography color="text.secondary" variant="body2" fontWeight="500" gutterBottom>
               {title}
             </Typography>
             <Typography variant="h4" fontWeight="bold">
               {value}
             </Typography>
             {subtitle && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                 {subtitle}
               </Typography>
             )}
           </Box>
-          <Box sx={{ color, opacity: 0.7, fontSize: 40 }}>
+          <Box sx={{ color, opacity: 0.2, fontSize: 48, mt: -1 }}>
             {icon}
           </Box>
         </Box>
@@ -77,25 +77,25 @@ export default function Dashboard() {
 
   return (
     <Box>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold" gutterBottom>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" fontWeight="bold" gutterBottom color="text.primary">
           Dashboard
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Welcome to {stats?.organization_name || 'your CRM'}
+          Welcome back to {stats?.organization_name || 'Nadik'}
         </Typography>
       </Box>
 
       {/* Subscription Warning */}
       {stats?.subscription?.days_remaining <= 7 && (
-        <Alert severity="warning" sx={{ mb: 3 }}>
+        <Alert severity="warning" sx={{ mb: 4, borderRadius: 2 }}>
           Your subscription expires in {stats.subscription.days_remaining} days.
         </Alert>
       )}
 
       {/* KPI Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             icon={<PeopleIcon fontSize="inherit" />}
             title="Active Members"
@@ -104,7 +104,7 @@ export default function Dashboard() {
             subtitle={`${stats?.new_members || 0} new this month`}
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             icon={<WarningIcon fontSize="inherit" />}
             title="Unpaid This Month"
@@ -112,20 +112,20 @@ export default function Dashboard() {
             color="warning.main"
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             icon={<TrendingUpIcon fontSize="inherit" />}
             title="Month Income"
-            value={`$${stats?.month_income?.toFixed(0) || 0}`}
+            value={`${stats?.month_income?.toFixed(0) || 0} DH`}
             color="success.main"
-            subtitle={`$${stats?.today_income?.toFixed(0) || 0} today`}
+            subtitle={`${stats?.today_income?.toFixed(0) || 0} DH today`}
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             icon={<TrendingDownIcon fontSize="inherit" />}
             title="Month Expenses"
-            value={`$${stats?.month_expenses?.toFixed(0) || 0}`}
+            value={`${stats?.month_expenses?.toFixed(0) || 0} DH`}
             color="error.main"
           />
         </Grid>
@@ -133,7 +133,7 @@ export default function Dashboard() {
 
       {/* Second Row */}
       <Grid container spacing={3}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             icon={<GroupIcon fontSize="inherit" />}
             title="Staff"
@@ -141,15 +141,15 @@ export default function Dashboard() {
             color="info.main"
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             icon={<PersonOffIcon fontSize="inherit" />}
             title="Inactive Members"
             value={stats?.inactive_members || 0}
-            color="text.disabled"
+            color="text.secondary"
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             icon={<ArticleIcon fontSize="inherit" />}
             title="Events"
@@ -157,11 +157,11 @@ export default function Dashboard() {
             color="secondary.main"
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             icon={<PaymentIcon fontSize="inherit" />}
             title="Added Payments"
-            value={`$${stats?.month_added_payments?.toFixed(0) || 0}`}
+            value={`${stats?.month_added_payments?.toFixed(0) || 0} DH`}
             color="success.light"
             subtitle="This month"
           />

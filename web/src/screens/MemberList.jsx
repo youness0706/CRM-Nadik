@@ -1,55 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
-  TableRow, Button, Box, Chip, IconButton, TextField, InputAdornment,
-  CircularProgress, ToggleButtonGroup, ToggleButton, Dialog, DialogTitle,
-  DialogContent, DialogActions, MenuItem, Select, FormControl, InputLabel
+  TableRow, Button, Box, Chip, TextField, InputAdornment,
+  CircularProgress, ToggleButtonGroup, ToggleButton, FormControl, InputLabel,
+  Select, MenuItem, TablePagination
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import apiClient from '../services/api';
+import usePagination from '../hooks/usePagination';
 
 const CATEGORIES = [
-  { value: 'all', label: 'All' },
-  { value: 'الصغار', label: 'Kids' },
-  { value: 'فتيان', label: 'Boys' },
-  { value: 'شبان', label: 'Youth' },
-  { value: 'كبار', label: 'Adults' },
-  { value: 'نساء', label: 'Women' },
+  { value: 'all', label: 'All Categories' },
+  { value: 'الصغار', label: 'Kids (الصغار)' },
+  { value: 'فتيان', label: 'Boys (فتيان)' },
+  { value: 'شبان', label: 'Youth (شبان)' },
+  { value: 'كبار', label: 'Adults (كبار)' },
+  { value: 'نساء', label: 'Women (نساء)' },
 ];
 
 export default function MemberList() {
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [activeFilter, setActiveFilter] = useState('true');
-  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [searchInput, setSearchInput] = useState('');
+  
+  const {
+    data: members,
+    loading,
+    page,
+    rowsPerPage,
+    totalCount,
+    filters,
+    handlePageChange,
+    handleRowsPerPageChange,
+    applyFilter,
+    applyMultipleFilters
+  } = usePagination('/crm/members/', { is_active: 'true', category: 'all' });
 
-  useEffect(() => {
-    fetchMembers();
-  }, [activeFilter, categoryFilter]);
-
-  const fetchMembers = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      params.append('is_active', activeFilter);
-      if (categoryFilter !== 'all') params.append('category', categoryFilter);
-      const response = await apiClient.get(`/crm/members/?${params}`);
-      setMembers(response.data);
-    } catch (error) {
-      console.error('Failed to fetch members:', error);
-    } finally {
-      setLoading(false);
+  const handleSearchSubmit = (e) => {
+    if (e.key === 'Enter') {
+      applyFilter('search', searchInput);
     }
   };
-
-  const filteredMembers = members.filter(m =>
-    `${m.first_name} ${m.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
-    (m.phone || '').includes(search)
-  );
 
   return (
     <Box>
@@ -61,62 +50,70 @@ export default function MemberList() {
       </Box>
 
       {/* Filters */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'center' }}>
+      <Paper sx={{ p: 2, mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', borderRadius: 2 }}>
         <TextField
           size="small"
-          placeholder="Search by name or phone..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search members (press Enter)..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          onKeyDown={handleSearchSubmit}
           InputProps={{
             startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment>,
           }}
-          sx={{ minWidth: 250 }}
+          sx={{ minWidth: 250, flexGrow: 1 }}
         />
         <ToggleButtonGroup
-          value={activeFilter}
+          value={filters.is_active || 'true'}
           exclusive
-          onChange={(e, val) => val && setActiveFilter(val)}
+          onChange={(e, val) => val !== null && applyFilter('is_active', val)}
           size="small"
         >
           <ToggleButton value="true">Active</ToggleButton>
           <ToggleButton value="false">Inactive</ToggleButton>
         </ToggleButtonGroup>
-        <FormControl size="small" sx={{ minWidth: 120 }}>
+        <FormControl size="small" sx={{ minWidth: 150 }}>
           <InputLabel>Category</InputLabel>
           <Select
-            value={categoryFilter}
+            value={filters.category || 'all'}
             label="Category"
-            onChange={(e) => setCategoryFilter(e.target.value)}
+            onChange={(e) => applyFilter('category', e.target.value)}
           >
             {CATEGORIES.map(c => (
               <MenuItem key={c.value} value={c.value}>{c.label}</MenuItem>
             ))}
           </Select>
         </FormControl>
-        <Chip label={`${filteredMembers.length} members`} color="primary" variant="outlined" />
-      </Box>
+      </Paper>
 
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ backgroundColor: 'primary.main' }}>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Name</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Phone</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Category</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Belt</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Age</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Gender</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Started</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Status</TableCell>
+      <TableContainer component={Paper} sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+        <Table>
+          <TableHead>
+            <TableRow sx={{ backgroundColor: 'background.default' }}>
+              <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Phone</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Category</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Belt</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Age</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Gender</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Started</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                  <CircularProgress />
+                </TableCell>
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredMembers.map((m) => (
+            ) : members.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                  <Typography color="text.secondary">No members found.</Typography>
+                </TableCell>
+              </TableRow>
+            ) : (
+              members.map((m) => (
                 <TableRow key={m.id} hover>
                   <TableCell sx={{ fontWeight: 500 }}>{m.first_name} {m.last_name}</TableCell>
                   <TableCell>{m.phone || '—'}</TableCell>
@@ -130,21 +127,24 @@ export default function MemberList() {
                       label={m.is_active ? 'Active' : 'Inactive'}
                       color={m.is_active ? 'success' : 'default'}
                       size="small"
+                      sx={{ borderRadius: 1 }}
                     />
                   </TableCell>
                 </TableRow>
-              ))}
-              {filteredMembers.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                    <Typography color="text.secondary">No members found.</Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
+              ))
+            )}
+          </TableBody>
+        </Table>
+        <TablePagination
+          component="div"
+          count={totalCount}
+          page={page}
+          onPageChange={handlePageChange}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleRowsPerPageChange}
+          rowsPerPageOptions={[10, 25, 50, 100]}
+        />
+      </TableContainer>
     </Box>
   );
 }
