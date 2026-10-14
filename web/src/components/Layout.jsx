@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box, Drawer, AppBar, Toolbar, List, Typography, Divider, IconButton,
   ListItem, ListItemButton, ListItemIcon, ListItemText, Avatar
@@ -12,6 +12,9 @@ import EventIcon from '@mui/icons-material/Event';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import LogoutIcon from '@mui/icons-material/Logout';
+import WarningIcon from '@mui/icons-material/Warning';
+import SettingsIcon from '@mui/icons-material/Settings';
+import BusinessIcon from '@mui/icons-material/Business';
 import { useNavigate, useLocation } from 'react-router-dom';
 import apiClient from '../services/api';
 
@@ -19,8 +22,15 @@ const drawerWidth = 260;
 
 export default function Layout({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [profile, setProfile] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    apiClient.get('/auth/me/')
+      .then((response) => setProfile(response.data.data ?? response.data))
+      .catch(() => setProfile(null));
+  }, []);
 
   const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
 
@@ -41,10 +51,13 @@ export default function Layout({ children }) {
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Members', icon: <PeopleIcon />, path: '/members' },
     { text: 'Payments', icon: <PaymentIcon />, path: '/payments' },
+    { text: 'Unpaid', icon: <WarningIcon />, path: '/unpaid' },
     { text: 'Finance', icon: <AccountBalanceIcon />, path: '/financial' },
     { text: 'Expenses', icon: <ReceiptLongIcon />, path: '/expenses' },
     { text: 'Events', icon: <EventIcon />, path: '/events' },
     { text: 'Staff', icon: <GroupIcon />, path: '/staff' },
+    ...(profile?.is_platform_admin ? [{ text: 'Organizations', icon: <BusinessIcon />, path: '/platform/organizations' }] : []),
+    { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   ];
 
   const drawer = (

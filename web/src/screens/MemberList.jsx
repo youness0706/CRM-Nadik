@@ -3,11 +3,15 @@ import {
   Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Button, Box, Chip, TextField, InputAdornment,
   CircularProgress, ToggleButtonGroup, ToggleButton, FormControl, InputLabel,
-  Select, MenuItem, TablePagination
+  Select, MenuItem, TablePagination, IconButton, Tooltip, Snackbar, Alert
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import usePagination from '../hooks/usePagination';
+import MemberDialog from '../components/MemberDialog';
+import apiClient from '../services/api';
 
 const CATEGORIES = [
   { value: 'all', label: 'All Categories' },
@@ -20,10 +24,14 @@ const CATEGORIES = [
 
 export default function MemberList() {
   const [searchInput, setSearchInput] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
   
   const {
     data: members,
     loading,
+    error,
     page,
     rowsPerPage,
     totalCount,
@@ -31,7 +39,7 @@ export default function MemberList() {
     handlePageChange,
     handleRowsPerPageChange,
     applyFilter,
-    applyMultipleFilters
+    refresh
   } = usePagination('/crm/members/', { is_active: 'true', category: 'all' });
 
   const handleSearchSubmit = (e) => {
@@ -40,11 +48,39 @@ export default function MemberList() {
     }
   };
 
+  const handleAddClick = () => {
+    setSelectedMember(null);
+    setDialogOpen(true);
+  };
+
+  const handleEditClick = (member) => {
+    setSelectedMember(member);
+    setDialogOpen(true);
+  };
+
+  const handleDeleteClick = async (member) => {
+    if (window.confirm(`Are you sure you want to delete ${member.first_name} ${member.last_name}?`)) {
+      try {
+        await apiClient.delete(`/crm/members/${member.id}/`);
+        setToast({ open: true, message: 'Member deleted successfully.', severity: 'success' });
+        refresh();
+      } catch (err) {
+        setToast({ open: true, message: 'Failed to delete member.', severity: 'error' });
+      }
+    }
+  };
+
+  const handleDialogSuccess = () => {
+    setDialogOpen(false);
+    setToast({ open: true, message: selectedMember ? 'Member updated successfully.' : 'Member added successfully.', severity: 'success' });
+    refresh();
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" fontWeight="bold">Members</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} size="large">
+        <Button variant="contained" startIcon={<AddIcon />} size="large" onClick={handleAddClick}>
           Add Member
         </Button>
       </Box>
@@ -85,6 +121,8 @@ export default function MemberList() {
         </FormControl>
       </Paper>
 
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
       <TableContainer component={Paper} sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
         <Table>
           <TableHead>
@@ -94,21 +132,20 @@ export default function MemberList() {
               <TableCell sx={{ fontWeight: 'bold' }}>Category</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Belt</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Age</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Gender</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Started</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', textAlign: 'right' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                   <CircularProgress />
                 </TableCell>
               </TableRow>
             ) : members.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                   <Typography color="text.secondary">No members found.</Typography>
                 </TableCell>
               </TableRow>
@@ -120,8 +157,6 @@ export default function MemberList() {
                   <TableCell>{m.category}</TableCell>
                   <TableCell>{m.belt_degree || '—'}</TableCell>
                   <TableCell>{m.age || '—'}</TableCell>
-                  <TableCell>{m.male_female === 'male' ? '♂' : '♀'}</TableCell>
-                  <TableCell>{m.started_day}</TableCell>
                   <TableCell>
                     <Chip
                       label={m.is_active ? 'Active' : 'Inactive'}
@@ -129,6 +164,18 @@ export default function MemberList() {
                       size="small"
                       sx={{ borderRadius: 1 }}
                     />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Tooltip title="Edit Member">
+                      <IconButton size="small" color="primary" onClick={() => handleEditClick(m)}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete Member">
+                      <IconButton size="small" color="error" onClick={() => handleDeleteClick(m)}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               ))
@@ -145,6 +192,24 @@ export default function MemberList() {
           rowsPerPageOptions={[10, 25, 50, 100]}
         />
       </TableContainer>
+
+      <MemberDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        member={selectedMember}
+        onSuccess={handleDialogSuccess}
+      />
+
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={6000}
+        onClose={() => setToast({ ...toast, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setToast({ ...toast, open: false })} severity={toast.severity} sx={{ width: '100%' }}>
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

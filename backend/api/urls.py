@@ -15,4 +15,7 @@ urlpatterns = [
 
     # CRM functionality
     path('crm/', include('api.crm.urls')),
+
+    # Platform-wide organization administration
+    path('platform/', include('api.platform_admin.urls')),
 ]

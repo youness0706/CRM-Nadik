@@ -1,14 +1,64 @@
+from django.contrib.auth.models import User
 from rest_framework import serializers
 from trainers.models import Staff, Trainer, Payments, Article, Costs, Addedpay, TrainerDocument
 
 class StaffSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source='user.username', read_only=True)
-    first_name = serializers.CharField(source='user.first_name', read_only=True)
-    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    username = serializers.CharField(source='user.username')
+    first_name = serializers.CharField(source='user.first_name', required=False)
+    last_name = serializers.CharField(source='user.last_name', required=False)
+    email = serializers.EmailField(source='user.email')
+    password = serializers.CharField(write_only=True, required=False)
 
     class Meta:
         model = Staff
-        fields = ['id', 'username', 'first_name', 'last_name', 'role', 'is_admin', 'started', 'salary', 'datepay', 'email', 'phone_number']
+        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'password', 'role', 'is_admin', 'started', 'salary', 'datepay', 'phone_number']
+        read_only_fields = ['organization']
+
+    def to_representation(self, instance):
+        """Coerce datetime→date on instance before DRF DateField serializes it.
+        The model uses default=timezone.now which produces a datetime, but the
+        column is DateField. DRF's DateField.to_representation asserts the value
+        is not a datetime, so we must convert it first."""
+        import datetime as dt
+        for field_name in ('started', 'datepay'):
+            val = getattr(instance, field_name, None)
+            if isinstance(val, dt.datetime):
+                setattr(instance, field_name, val.date())
+        return super().to_representation(instance)
+
+    def create(self, validated_data):
+        user_data = validated_data.pop('user')
+        password = validated_data.pop('password', None)
+        
+        user = User(
+            username=user_data.get('username'),
+            email=user_data.get('email'),
+            first_name=user_data.get('first_name', ''),
+            last_name=user_data.get('last_name', '')
+        )
+        if password:
+            user.set_password(password)
+        user.save()
+        
+        staff = Staff.objects.create(user=user, **validated_data)
+        return staff
+
+    def update(self, instance, validated_data):
+        if 'user' in validated_data:
+            user_data = validated_data.pop('user')
+            user = instance.user
+            user.username = user_data.get('username', user.username)
+            user.email = user_data.get('email', user.email)
+            user.first_name = user_data.get('first_name', user.first_name)
+            user.last_name = user_data.get('last_name', user.last_name)
+            user.save()
+            
+        password = validated_data.pop('password', None)
+        if password:
+            instance.user.set_password(password)
+            instance.user.save()
+            
+        return super().update(instance, validated_data)
 
 
 class TrainerSerializer(serializers.ModelSerializer):
@@ -31,10 +81,11 @@ class TrainerCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Trainer
         fields = [
-            'first_name', 'last_name', 'birth_day', 'phone', 'phone_parent',
+            'id', 'first_name', 'last_name', 'birth_day', 'phone', 'phone_parent',
             'email', 'CIN', 'address', 'male_female', 'belt_degree', 'Degree',
             'category', 'tall', 'weight', 'started_day', 'is_active', 'image',
         ]
+        read_only_fields = ['id']
 
 
 class PaymentSerializer(serializers.ModelSerializer):

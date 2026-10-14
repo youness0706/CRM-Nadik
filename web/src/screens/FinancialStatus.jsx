@@ -1,26 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import {
   Typography, Paper, Box, Grid, Card, CardContent, CircularProgress,
-  FormControl, InputLabel, Select, MenuItem, Divider
+  FormControl, InputLabel, Select, MenuItem, Divider, Alert
 } from '@mui/material';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import apiClient from '../services/api';
+import { getApiErrorMessage } from '../services/errors';
 
 export default function FinancialStatus() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [year, setYear] = useState(new Date().getFullYear());
 
   useEffect(() => { fetchData(); }, [year]);
 
   const fetchData = async () => {
     setLoading(true);
+    setError('');
     try {
       const response = await apiClient.get(`/crm/financial/?year=${year}`);
       setData(response.data);
     } catch (error) {
+      setError(getApiErrorMessage(error, 'Failed to load financial data.'));
       console.error('Failed to fetch financial data:', error);
     } finally {
       setLoading(false);
@@ -46,6 +50,8 @@ export default function FinancialStatus() {
           </Select>
         </FormControl>
       </Box>
+
+      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>

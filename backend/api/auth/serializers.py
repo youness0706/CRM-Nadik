@@ -51,6 +51,7 @@ class NadikTokenObtainPairSerializer(TokenObtainPairSerializer):
             'email': user.email,
             'first_name': user.first_name,
             'last_name': user.last_name,
+            'is_platform_admin': user.is_superuser,
         }
 
         # Add organization info if available
@@ -171,11 +172,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
     organization = serializers.SerializerMethodField()
     is_admin = serializers.SerializerMethodField()
     role = serializers.SerializerMethodField()
+    is_platform_admin = serializers.BooleanField(source='is_superuser', read_only=True)
 
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name',
-                  'date_joined', 'organization', 'is_admin', 'role']
+                  'date_joined', 'organization', 'is_admin', 'role', 'is_platform_admin']
         read_only_fields = ['id', 'date_joined']
 
     def get_organization(self, obj):

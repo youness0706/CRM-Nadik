@@ -1,0 +1,97 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run Nadik mobile app",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/c",
+				"cd /d \"C:\\Users\\zoro\\Desktop\\projects\\crm_backupload - base\\CRM-general\\mobile\" && flutter pub get && flutter devices && flutter run -d android"
+			],
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Run Nadik mobile app with Flutter path",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/c",
+				"set \"PATH=C:\\Users\\zoro\\develop\\flutter\\bin;%PATH%\" && cd /d \"C:\\Users\\zoro\\Desktop\\projects\\crm_backupload - base\\CRM-general\\mobile\" && flutter pub get && flutter devices && flutter run -d android"
+			],
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Diagnose Android toolchain",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/c",
+				"set \"PATH=C:\\Users\\zoro\\develop\\flutter\\bin;%PATH%\" && cd /d \"C:\\Users\\zoro\\Desktop\\projects\\crm_backupload - base\\CRM-general\\mobile\" && flutter doctor -v && flutter emulators"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Inspect Android SDK",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/c",
+				"dir /s /b \"C:\\Users\\zoro\\AppData\\Local\\Android\\sdk\\cmdline-tools\\*\\bin\\sdkmanager.bat\" \"C:\\Users\\zoro\\AppData\\Local\\Android\\sdk\\platform-tools\\adb.exe\" \"C:\\Users\\zoro\\AppData\\Local\\Android\\sdk\\emulator\\emulator.exe\""
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Inspect SDK contents",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/c",
+				"for %D in (\"C:\\Users\\zoro\\AppData\\Local\\Android\\sdk\" \"C:\\Program Files\\Android\\Android Studio\" \"C:\\Program Files\\Android\\Android Studio\\cmdline-tools\") do if exist \"%~D\" echo ===%~D=== && dir \"%~D\" /b | head -80"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "List Android SDK paths",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/c",
+				"dir /b \"C:\\Users\\zoro\\AppData\\Local\\Android\\sdk\" && dir /b \"C:\\Program Files\\Android\\Android Studio\""
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Start Android emulator and app",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/c",
+				"set \"PATH=C:\\Users\\zoro\\develop\\flutter\\bin;%PATH%\" && cd /d \"C:\\Users\\zoro\\Desktop\\projects\\crm_backupload - base\\CRM-general\\mobile\" && flutter emulators --launch Medium_Phone_API_37.0 && flutter run -d android"
+			],
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Capture emulator error",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/c",
+				"set \"ANDROID_HOME=C:\\Users\\zoro\\AppData\\Local\\Android\\sdk\" && set \"ANDROID_SDK_ROOT=C:\\Users\\zoro\\AppData\\Local\\Android\\sdk\" && set \"PATH=C:\\Users\\zoro\\AppData\\Local\\Android\\sdk\\emulator;C:\\Users\\zoro\\AppData\\Local\\Android\\sdk\\platform-tools;C:\\Users\\zoro\\develop\\flutter\\bin;%PATH%\" && \"C:\\Users\\zoro\\AppData\\Local\\Android\\sdk\\emulator\\emulator.exe\" -avd Medium_Phone_API_37.0 -verbose"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

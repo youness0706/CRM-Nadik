@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import apiClient from '../services/api';
+import { getApiErrorMessage } from '../services/errors';
 
 export default function usePagination(endpoint, initialFilters = {}) {
   const [data, setData] = useState([]);
@@ -41,7 +42,7 @@ export default function usePagination(endpoint, initialFilters = {}) {
         setTotalCount(0);
       }
     } catch (err) {
-      setError(err);
+      setError(getApiErrorMessage(err, `Failed to load ${endpoint}.`));
       console.error(`Failed to fetch ${endpoint}:`, err);
     } finally {
       setLoading(false);

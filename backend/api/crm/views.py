@@ -40,6 +40,20 @@ class StaffViewSet(BaseOrganizationViewSet):
     queryset = Staff.objects.all().select_related('user')
     serializer_class = StaffSerializer
 
+    def get_permissions(self):
+        # We need a custom permission to restrict mutation to admins
+        return super().get_permissions()
+        
+    def check_permissions(self, request):
+        super().check_permissions(request)
+        if request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
+            try:
+                staff = Staff.objects.select_related('organization').get(user=request.user)
+                if not staff.is_admin:
+                    self.permission_denied(request, message="Only admins can manage staff.")
+            except Staff.DoesNotExist:
+                self.permission_denied(request, message="No organization found.")
+
 
 class TrainerViewSet(BaseOrganizationViewSet):
     queryset = Trainer.objects.all()

@@ -14,6 +14,7 @@ import WarningIcon from '@mui/icons-material/Warning';
 import NewReleasesIcon from '@mui/icons-material/NewReleases';
 import ArticleIcon from '@mui/icons-material/Article';
 import apiClient from '../services/api';
+import { getApiErrorMessage } from '../services/errors';
 
 function StatCard({ icon, title, value, color = 'primary.main', subtitle }) {
   return (
@@ -56,7 +57,7 @@ export default function Dashboard() {
       const response = await apiClient.get('/crm/dashboard/');
       setStats(response.data);
     } catch (err) {
-      setError('Failed to load dashboard data');
+      setError(getApiErrorMessage(err, 'Failed to load dashboard data.'));
       console.error(err);
     } finally {
       setLoading(false);

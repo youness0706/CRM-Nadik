@@ -1,11 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Button, Box, Chip, TextField, CircularProgress,
-  FormControl, InputLabel, Select, MenuItem, TablePagination
+  FormControl, InputLabel, Select, MenuItem, TablePagination,
+  IconButton, Tooltip, Snackbar, Alert
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import usePagination from '../hooks/usePagination';
+import PaymentDialog from '../components/PaymentDialog';
+import apiClient from '../services/api';
 
 const PAYMENT_TYPES = [
   { value: 'all', label: 'All Types' },
@@ -16,26 +21,60 @@ const PAYMENT_TYPES = [
 ];
 
 export default function PaymentList() {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
+
   const {
     data: payments,
     loading,
+    error,
     page,
     rowsPerPage,
     totalCount,
     filters,
     handlePageChange,
     handleRowsPerPageChange,
-    applyFilter
+    applyFilter,
+    refresh
   } = usePagination('/crm/payments/', { paymentCategry: 'all', start_date: '', end_date: '' });
 
   // Compute total of current page (backend might need a dedicated endpoint for overall total)
   const pageTotal = payments.reduce((sum, p) => sum + parseFloat(p.paymentAmount || 0), 0);
 
+  const handleAddClick = () => {
+    setSelectedPayment(null);
+    setDialogOpen(true);
+  };
+
+  const handleEditClick = (payment) => {
+    setSelectedPayment(payment);
+    setDialogOpen(true);
+  };
+
+  const handleDeleteClick = async (payment) => {
+    if (window.confirm(`Are you sure you want to delete this payment of ${payment.paymentAmount} MAD for ${payment.trainer_name}?`)) {
+      try {
+        await apiClient.delete(`/crm/payments/${payment.id}/`);
+        setToast({ open: true, message: 'Payment deleted successfully.', severity: 'success' });
+        refresh();
+      } catch (err) {
+        setToast({ open: true, message: 'Failed to delete payment.', severity: 'error' });
+      }
+    }
+  };
+
+  const handleDialogSuccess = () => {
+    setDialogOpen(false);
+    setToast({ open: true, message: selectedPayment ? 'Payment updated successfully.' : 'Payment recorded successfully.', severity: 'success' });
+    refresh();
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" fontWeight="bold">Payments</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} size="large">
+        <Button variant="contained" startIcon={<AddIcon />} size="large" onClick={handleAddClick}>
           Record Payment
         </Button>
       </Box>
@@ -74,6 +113,8 @@ export default function PaymentList() {
         />
       </Paper>
 
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
       <TableContainer component={Paper} sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
         <Table>
           <TableHead>
@@ -82,18 +123,19 @@ export default function PaymentList() {
               <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Amount (MAD)</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', textAlign: 'right' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
                   <CircularProgress />
                 </TableCell>
               </TableRow>
             ) : payments.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
                   <Typography color="text.secondary">No payments found.</Typography>
                 </TableCell>
               </TableRow>
@@ -107,6 +149,18 @@ export default function PaymentList() {
                   </TableCell>
                   <TableCell sx={{ fontWeight: 'bold', color: 'success.main' }}>
                     {parseFloat(p.paymentAmount).toFixed(2)} DH
+                  </TableCell>
+                  <TableCell align="right">
+                    <Tooltip title="Edit Payment">
+                      <IconButton size="small" color="primary" onClick={() => handleEditClick(p)}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete Payment">
+                      <IconButton size="small" color="error" onClick={() => handleDeleteClick(p)}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               ))
@@ -123,6 +177,24 @@ export default function PaymentList() {
           rowsPerPageOptions={[10, 25, 50, 100]}
         />
       </TableContainer>
+
+      <PaymentDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        payment={selectedPayment}
+        onSuccess={handleDialogSuccess}
+      />
+
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={6000}
+        onClose={() => setToast({ ...toast, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={() => setToast({ ...toast, open: false })} severity={toast.severity} sx={{ width: '100%' }}>
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

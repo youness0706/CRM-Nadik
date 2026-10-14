@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Container, Box, Typography, TextField, Button, Alert, Paper } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import apiClient from '../services/api';
 
 function formatErrorMessage(value) {
@@ -36,7 +36,7 @@ export default function Login() {
       if (access && refresh) {
         localStorage.setItem('access_token', access);
         localStorage.setItem('refresh_token', refresh);
-        navigate('/dashboard');
+        navigate(response.data.user?.is_platform_admin ? '/platform/organizations' : '/dashboard');
       } else {
         setError('Login failed: Invalid response format.');
       }
@@ -106,6 +106,9 @@ export default function Login() {
               disabled={isLoading}
             >
               {isLoading ? 'Signing In...' : 'Sign In'}
+            </Button>
+            <Button component={RouterLink} to="/register" fullWidth sx={{ mt: 1 }}>
+              Create an organization
             </Button>
           </Box>
         </Paper>

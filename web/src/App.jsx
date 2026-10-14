@@ -3,13 +3,17 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 
 import Login from './screens/Login';
+import Register from './screens/Register';
 import Dashboard from './screens/Dashboard';
 import StaffList from './screens/StaffList';
 import MemberList from './screens/MemberList';
 import PaymentList from './screens/PaymentList';
+import UnpaidList from './screens/UnpaidList';
 import ArticleList from './screens/ArticleList';
 import ExpenseList from './screens/ExpenseList';
 import FinancialStatus from './screens/FinancialStatus';
+import Settings from './screens/Settings';
+import PlatformOrganizations from './screens/PlatformOrganizations';
 import Layout from './components/Layout';
 
 const theme = createTheme({
@@ -117,13 +121,17 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/staff" element={<ProtectedRoute><StaffList /></ProtectedRoute>} />
           <Route path="/members" element={<ProtectedRoute><MemberList /></ProtectedRoute>} />
           <Route path="/payments" element={<ProtectedRoute><PaymentList /></ProtectedRoute>} />
+          <Route path="/unpaid" element={<ProtectedRoute><UnpaidList /></ProtectedRoute>} />
           <Route path="/events" element={<ProtectedRoute><ArticleList /></ProtectedRoute>} />
           <Route path="/expenses" element={<ProtectedRoute><ExpenseList /></ProtectedRoute>} />
           <Route path="/financial" element={<ProtectedRoute><FinancialStatus /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+          <Route path="/platform/organizations" element={<ProtectedRoute><PlatformOrganizations /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>

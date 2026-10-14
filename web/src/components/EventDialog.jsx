@@ -1,0 +1,91 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Dialog, DialogTitle, DialogContent, DialogActions, Button,
+  TextField, Grid, CircularProgress, Alert
+} from '@mui/material';
+import apiClient from '../services/api';
+import { getApiErrorMessage } from '../services/errors';
+
+const DEFAULT_EVENT = {
+  title: '', date: new Date().toISOString().split('T')[0], location: '',
+  content: '', category: 'تظاهرة', area: 'وطني', costs: '', participetion_price: ''
+};
+
+export default function EventDialog({ open, onClose, event = null, onSuccess }) {
+  const [formData, setFormData] = useState(DEFAULT_EVENT);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (open) {
+      setFormData(event ? { ...event } : DEFAULT_EVENT);
+      setError(null);
+    }
+  }, [open, event]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      if (event && event.id) {
+        await apiClient.put(`/crm/articles/${event.id}/`, formData);
+      } else {
+        await apiClient.post('/crm/articles/', formData);
+      }
+      onSuccess();
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'An error occurred.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <form onSubmit={handleSubmit}>
+        <DialogTitle>{event ? 'Edit Event' : 'Add Event'}</DialogTitle>
+        <DialogContent dividers>
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <TextField fullWidth required label="Title" name="title" value={formData.title} onChange={handleChange} />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField fullWidth label="Description/Content" name="content" value={formData.content} onChange={handleChange} multiline rows={3} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth type="date" required label="Date" name="date" value={formData.date} onChange={handleChange} InputLabelProps={{ shrink: true }} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Location" name="location" value={formData.location} onChange={handleChange} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Category" name="category" value={formData.category} onChange={handleChange} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Area" name="area" value={formData.area} onChange={handleChange} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth type="number" label="Event Costs (MAD)" name="costs" value={formData.costs} onChange={handleChange} inputProps={{ step: "0.01", min: "0" }} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth type="number" label="Participation Price (MAD)" name="participetion_price" value={formData.participetion_price} onChange={handleChange} inputProps={{ step: "0.01", min: "0" }} />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={onClose} disabled={loading}>Cancel</Button>
+          <Button type="submit" variant="contained" disabled={loading} startIcon={loading ? <CircularProgress size={20} /> : null}>
+            {event ? 'Save Changes' : 'Add Event'}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
+  );
+}
