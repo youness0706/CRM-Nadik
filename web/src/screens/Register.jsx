@@ -24,9 +24,26 @@ export default function Register() {
   const [form, setForm] = useState(INITIAL_FORM);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [availability, setAvailability] = useState({ username: null, slug: null });
 
   const handleChange = (event) => {
-    setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
+    const { name, value } = event.target;
+    setForm((current) => ({ ...current, [name]: value }));
+    if (name === 'username') setAvailability((current) => ({ ...current, username: null }));
+    if (name === 'org_slug') setAvailability((current) => ({ ...current, slug: null }));
+  };
+
+  const checkAvailability = async (field, value, endpoint) => {
+    if (!value.trim()) {
+      setAvailability((current) => ({ ...current, [field]: null }));
+      return;
+    }
+    try {
+      const response = await apiClient.get(endpoint, { params: { [field]: value } });
+      setAvailability((current) => ({ ...current, [field]: response.data }));
+    } catch {
+      setAvailability((current) => ({ ...current, [field]: null }));
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -67,7 +84,7 @@ export default function Register() {
             <Typography variant="h6" sx={{ mb: 1 }}>Administrator</Typography>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
-                <TextField fullWidth required label="Username" name="username" value={form.username} onChange={handleChange} inputProps={{ minLength: 3 }} disabled={loading} />
+                <TextField fullWidth required label="Username" name="username" value={form.username} onChange={handleChange} onBlur={() => checkAvailability('username', form.username, '/auth/check-username/')} inputProps={{ minLength: 3 }} helperText={availability.username?.message} error={availability.username?.available === false} disabled={loading} />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField fullWidth required type="email" label="Email" name="email" value={form.email} onChange={handleChange} disabled={loading} />
@@ -92,6 +109,9 @@ export default function Register() {
                 <TextField fullWidth required label="Organization name" name="org_name" value={form.org_name} onChange={handleChange} inputProps={{ minLength: 3 }} disabled={loading} />
               </Grid>
               <Grid item xs={12} sm={6}>
+                <TextField fullWidth label="Organization slug (optional)" name="org_slug" value={form.org_slug || ''} onChange={handleChange} onBlur={() => checkAvailability('slug', form.org_slug || '', '/auth/check-slug/')} inputProps={{ minLength: 3 }} helperText={availability.slug?.message || 'Leave blank to generate from the organization name.'} error={availability.slug?.available === false} disabled={loading} />
+              </Grid>
+              <Grid item xs={12} sm={6}>
                 <TextField fullWidth type="email" label="Organization email" name="org_email" value={form.org_email} onChange={handleChange} disabled={loading} />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -104,7 +124,7 @@ export default function Register() {
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3, gap: 2 }}>
               <Button component={RouterLink} to="/" disabled={loading}>Back to sign in</Button>
-              <Button type="submit" variant="contained" disabled={loading}>
+              <Button type="submit" variant="contained" disabled={loading || availability.username?.available === false || availability.slug?.available === false}>
                 {loading ? 'Creating...' : 'Create organization'}
               </Button>
             </Box>

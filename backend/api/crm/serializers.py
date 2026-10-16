@@ -1,9 +1,14 @@
 from django.contrib.auth.models import User
+from django.db import transaction
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 from trainers.models import Staff, Trainer, Payments, Article, Costs, Addedpay, TrainerDocument
 
 class StaffSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source='user.username')
+    username = serializers.CharField(
+        source='user.username',
+        validators=[UniqueValidator(queryset=User.objects.all())],
+    )
     first_name = serializers.CharField(source='user.first_name', required=False)
     last_name = serializers.CharField(source='user.last_name', required=False)
     email = serializers.EmailField(source='user.email')
@@ -13,6 +18,11 @@ class StaffSerializer(serializers.ModelSerializer):
         model = Staff
         fields = ['id', 'username', 'first_name', 'last_name', 'email', 'password', 'role', 'is_admin', 'started', 'salary', 'datepay', 'phone_number']
         read_only_fields = ['organization']
+
+    def validate(self, attrs):
+        if self.instance is None and not attrs.get('password'):
+            raise serializers.ValidationError({'password': 'A password is required for new staff accounts.'})
+        return attrs
 
     def to_representation(self, instance):
         """Coerce datetime→date on instance before DRF DateField serializes it.
@@ -26,6 +36,7 @@ class StaffSerializer(serializers.ModelSerializer):
                 setattr(instance, field_name, val.date())
         return super().to_representation(instance)
 
+    @transaction.atomic
     def create(self, validated_data):
         user_data = validated_data.pop('user')
         password = validated_data.pop('password', None)
@@ -89,6 +100,7 @@ class TrainerCreateSerializer(serializers.ModelSerializer):
 
 
 class PaymentSerializer(serializers.ModelSerializer):
+    trainer = serializers.PrimaryKeyRelatedField(queryset=Trainer.objects.all())
     trainer_name = serializers.CharField(source='trainer.first_name', read_only=True)
     trainer_surname = serializers.CharField(source='trainer.last_name', read_only=True)
     category_display = serializers.CharField(source='get_paymentCategry_display', read_only=True)
@@ -100,6 +112,17 @@ class PaymentSerializer(serializers.ModelSerializer):
             'paymentdate', 'paymentCategry', 'category_display', 'paymentAmount',
         ]
         read_only_fields = ['organization']
+
+    def validate_trainer(self, trainer):
+        request = self.context.get('request')
+        if request:
+            try:
+                organization_id = Staff.objects.get(user=request.user).organization_id
+            except Staff.DoesNotExist:
+                raise serializers.ValidationError('You do not belong to an organization.')
+            if trainer.organization_id != organization_id:
+                raise serializers.ValidationError('Member does not belong to your organization.')
+        return trainer
 
 
 class ArticleSerializer(serializers.ModelSerializer):

@@ -12,6 +12,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import usePagination from '../hooks/usePagination';
 import MemberDialog from '../components/MemberDialog';
 import apiClient from '../services/api';
+import { useLanguage } from '../state/LanguageContext';
 
 const CATEGORIES = [
   { value: 'all', label: 'All Categories' },
@@ -23,6 +24,7 @@ const CATEGORIES = [
 ];
 
 export default function MemberList() {
+  const { t } = useLanguage();
   const [searchInput, setSearchInput] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
@@ -40,7 +42,7 @@ export default function MemberList() {
     handleRowsPerPageChange,
     applyFilter,
     refresh
-  } = usePagination('/crm/members/', { is_active: 'true', category: 'all' });
+  } = usePagination('/crm/members/', { is_active: 'all' });
 
   const handleSearchSubmit = (e) => {
     if (e.key === 'Enter') {
@@ -79,9 +81,9 @@ export default function MemberList() {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold">Members</Typography>
+        <Typography variant="h4" fontWeight="bold">{t('Members')}</Typography>
         <Button variant="contained" startIcon={<AddIcon />} size="large" onClick={handleAddClick}>
-          Add Member
+          {t('Add Member')}
         </Button>
       </Box>
 
@@ -89,7 +91,7 @@ export default function MemberList() {
       <Paper sx={{ p: 2, mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', borderRadius: 2 }}>
         <TextField
           size="small"
-          placeholder="Search members (press Enter)..."
+          placeholder={t('Search members (press Enter)...')}
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           onKeyDown={handleSearchSubmit}
@@ -99,20 +101,21 @@ export default function MemberList() {
           sx={{ minWidth: 250, flexGrow: 1 }}
         />
         <ToggleButtonGroup
-          value={filters.is_active || 'true'}
+          value={filters.is_active || 'all'}
           exclusive
           onChange={(e, val) => val !== null && applyFilter('is_active', val)}
           size="small"
         >
-          <ToggleButton value="true">Active</ToggleButton>
-          <ToggleButton value="false">Inactive</ToggleButton>
+          <ToggleButton value="all">{t('All Statuses')}</ToggleButton>
+          <ToggleButton value="true">{t('Active')}</ToggleButton>
+          <ToggleButton value="false">{t('Inactive')}</ToggleButton>
         </ToggleButtonGroup>
         <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel>Category</InputLabel>
+          <InputLabel>{t('Category')}</InputLabel>
           <Select
             value={filters.category || 'all'}
-            label="Category"
-            onChange={(e) => applyFilter('category', e.target.value)}
+            label={t('Category')}
+            onChange={(e) => applyFilter('category', e.target.value === 'all' ? '' : e.target.value)}
           >
             {CATEGORIES.map(c => (
               <MenuItem key={c.value} value={c.value}>{c.label}</MenuItem>
@@ -127,13 +130,13 @@ export default function MemberList() {
         <Table>
           <TableHead>
             <TableRow sx={{ backgroundColor: 'background.default' }}>
-              <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Phone</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Category</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Belt</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Age</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', textAlign: 'right' }}>Actions</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Name')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Phone')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Category')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Belt')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Age')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Status')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', textAlign: 'right' }}>{t('Actions')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -146,7 +149,7 @@ export default function MemberList() {
             ) : members.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                  <Typography color="text.secondary">No members found.</Typography>
+                  <Typography color="text.secondary">{t('No members found.')}</Typography>
                 </TableCell>
               </TableRow>
             ) : (

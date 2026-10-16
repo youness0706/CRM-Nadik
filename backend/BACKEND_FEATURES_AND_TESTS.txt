@@ -1,0 +1,73 @@
+NADIK BACKEND FEATURES AND TEST RESULTS
+========================================
+
+VERIFICATION
+------------
+Django test suite: PASS - 24 tests, 0 failures.
+Command: venv312\Scripts\python.exe manage.py test --verbosity 1
+
+Django system check: Completed with 1 warning.
+Migration drift check: PASS - no changes detected.
+Command: venv312\Scripts\python.exe manage.py makemigrations --check --dry-run
+
+Tests ran against Django's isolated in-memory SQLite test database. The local
+application database was not used or modified.
+
+FEATURES
+--------
+
+Authentication and accounts
+- JWT login using username or email, token refresh, and logout/token blacklist.
+- Public registration creates an organization, an owner account, and a trial.
+- Current-user profile read/update and password change.
+- Username and organization-slug availability checks.
+
+Organization CRM (tenant-scoped)
+- Staff management with admin-only mutations and staff roles.
+- Member/trainee create, list, detail, update, delete, and active/category filters.
+- Member payment records with category, date, and member filters.
+- Event/article records with participant counts and profit calculations.
+- Expense and additional-income records.
+- Dashboard metrics, unpaid-member listing, and annual financial summary.
+- Organization data isolation for members and financial resources.
+
+Platform administration and subscriptions
+- Superuser-only organization directory and organization detail views.
+- Organization and owner creation.
+- Subscription renewal for 1, 3, 6, or 12 months, with payment records and
+  subscription dates/status updated from the renewal.
+
+API documentation
+- OpenAPI schema, Swagger UI, and ReDoc endpoints under /api/v1/.
+
+Legacy web application
+- Organization setup/login, dashboard, member registration and profiles.
+- Member activation/deactivation and bulk member operations.
+- Payment entry/history, bulk payment operations, invoices, and financial reports.
+- Expense and additional-income tracking, staff and organization settings.
+- Articles/events, CKEditor uploads, email workflows, and subscription renewal.
+- Excel import/export, trainee reports, and Django administration.
+
+TEST COVERAGE RUN
+-----------------
+The passing suite covers authentication and token lifecycle; staff, member,
+payment, article, expense, and additional-income CRUD; dashboard/unpaid/finance
+responses; cross-organization data isolation; platform organization creation,
+listing, details, permission checks, and subscription renewals; and schema/docs
+route responses.
+
+ISSUES AND LIMITS
+-----------------
+- A cross-tenant payment-reference defect was found and fixed: a payment now
+  rejects a member belonging to another organization. A regression test covers it.
+- Dashboard monthly expense and additional-income totals now include all of
+  today's timezone-aware transactions; regression coverage verifies both totals.
+- Django warns that django-ckeditor bundles CKEditor 4.22.1, which is unsupported
+  and has known unfixed security issues. Consider migrating to a supported editor.
+- OpenAPI generation returns HTTP 200 but logs non-fatal serializer/type inference
+  warnings for several APIViews and computed fields. It also auto-resolves an
+  operation ID collision. Review schema annotations if client generation relies
+  on a precise OpenAPI contract.
+- The legacy template/form routes are inventoried above but were not each driven
+  through every request method and workflow in this test run. Real SMTP, Cloudinary,
+  external storage, and production database integrations were not exercised.

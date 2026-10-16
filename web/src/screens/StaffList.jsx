@@ -10,8 +10,10 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import usePagination from '../hooks/usePagination';
 import StaffDialog from '../components/StaffDialog';
 import apiClient from '../services/api';
+import { useLanguage } from '../state/LanguageContext';
 
 export default function StaffList() {
+  const { t } = useLanguage();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
@@ -61,10 +63,10 @@ export default function StaffList() {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold">Staff</Typography>
+        <Typography variant="h4" fontWeight="bold">{t('Staff')}</Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <Chip label={`Page Salaries: ${pageTotalSalaries.toFixed(2)} MAD`} color="info" variant="outlined" />
-          <Button variant="contained" startIcon={<AddIcon />} size="large" onClick={handleAddClick}>Add Staff</Button>
+          <Chip label={`${t('Page Salaries:')} ${pageTotalSalaries.toFixed(2)} MAD`} color="info" variant="outlined" />
+          <Button variant="contained" startIcon={<AddIcon />} size="large" onClick={handleAddClick}>{t('Add Staff')}</Button>
         </Box>
       </Box>
 
@@ -74,27 +76,28 @@ export default function StaffList() {
         <Table>
           <TableHead>
             <TableRow sx={{ backgroundColor: 'background.default' }}>
-              <TableCell sx={{ fontWeight: 'bold' }}>Username</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Role</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Admin</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Phone</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Salary (MAD)</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Started</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', textAlign: 'right' }}>Actions</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Username')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Name')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Role')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Admin')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Phone')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Salary (MAD)')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Started')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Last Salary Payment')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', textAlign: 'right' }}>{t('Actions')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
                   <CircularProgress />
                 </TableCell>
               </TableRow>
             ) : staff.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
-                  <Typography color="text.secondary">No staff members found.</Typography>
+                  <Typography color="text.secondary">{t('No staff members found.')}</Typography>
                 </TableCell>
               </TableRow>
             ) : (
@@ -114,6 +117,7 @@ export default function StaffList() {
                   <TableCell>{s.phone_number || '—'}</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>{parseFloat(s.salary).toFixed(2)} DH</TableCell>
                   <TableCell>{s.started}</TableCell>
+                  <TableCell>{s.datepay || '—'}</TableCell>
                   <TableCell align="right">
                     <Tooltip title="Edit Staff">
                       <IconButton size="small" color="primary" onClick={() => handleEditClick(s)}>

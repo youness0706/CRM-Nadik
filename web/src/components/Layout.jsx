@@ -15,8 +15,11 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import WarningIcon from '@mui/icons-material/Warning';
 import SettingsIcon from '@mui/icons-material/Settings';
 import BusinessIcon from '@mui/icons-material/Business';
+import { FormControl, MenuItem, Select } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
-import apiClient from '../services/api';
+import axios from 'axios';
+import apiClient, { API_BASE_URL } from '../services/api';
+import { useLanguage } from '../state/LanguageContext';
 
 const drawerWidth = 260;
 
@@ -25,6 +28,7 @@ export default function Layout({ children }) {
   const [profile, setProfile] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { language, setLanguage, t } = useLanguage();
 
   useEffect(() => {
     apiClient.get('/auth/me/')
@@ -35,11 +39,17 @@ export default function Layout({ children }) {
   const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
 
   const handleLogout = async () => {
+    const refreshToken = localStorage.getItem('refresh_token');
     try {
-      // Optional: Call backend logout if it exists
-      await apiClient.post('/auth/logout/');
-    } catch (err) {
-      console.error(err);
+      if (refreshToken) {
+        const refreshed = await axios.post(`${API_BASE_URL}/auth/refresh/`, { refresh: refreshToken });
+        const currentRefresh = refreshed.data.refresh || refreshToken;
+        await axios.post(`${API_BASE_URL}/auth/logout/`, { refresh: currentRefresh }, {
+          headers: { Authorization: `Bearer ${refreshed.data.access}` },
+        });
+      }
+    } catch {
+      // Local sign-out still completes if the server-side token has expired.
     } finally {
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
@@ -48,7 +58,7 @@ export default function Layout({ children }) {
   };
 
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+    { text: profile?.is_platform_admin ? 'Platform Dashboard' : 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Members', icon: <PeopleIcon />, path: '/members' },
     { text: 'Payments', icon: <PaymentIcon />, path: '/payments' },
     { text: 'Unpaid', icon: <WarningIcon />, path: '/unpaid' },
@@ -72,7 +82,7 @@ export default function Layout({ children }) {
             Nadik
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: -0.5 }}>
-            Management Panel
+            {t('Management Panel')}
           </Typography>
         </Box>
       </Box>
@@ -108,7 +118,7 @@ export default function Layout({ children }) {
                   {item.icon}
                 </ListItemIcon>
                 <ListItemText
-                  primary={item.text}
+                  primary={t(item.text)}
                   primaryTypographyProps={{ 
                     fontWeight: isActive ? 600 : 500, 
                     fontSize: '0.95rem' 
@@ -126,7 +136,7 @@ export default function Layout({ children }) {
         <ListItem disablePadding>
           <ListItemButton onClick={handleLogout} sx={{ borderRadius: 2, color: 'error.main' }}>
             <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}><LogoutIcon /></ListItemIcon>
-            <ListItemText primary="Sign Out" primaryTypographyProps={{ fontWeight: 600, fontSize: '0.95rem' }} />
+            <ListItemText primary={t('Sign Out')} primaryTypographyProps={{ fontWeight: 600, fontSize: '0.95rem' }} />
           </ListItemButton>
         </ListItem>
       </List>
@@ -157,8 +167,20 @@ export default function Layout({ children }) {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" fontWeight="600" component="div">
-            {menuItems.find(i => i.path === location.pathname)?.text || 'Dashboard'}
+            {t(menuItems.find(i => i.path === location.pathname)?.text || 'Dashboard')}
           </Typography>
+          <Box sx={{ flexGrow: 1 }} />
+          <FormControl size="small" sx={{ minWidth: 118 }}>
+            <Select
+              value={language}
+              onChange={(event) => setLanguage(event.target.value)}
+              inputProps={{ 'aria-label': t('Language') }}
+              sx={{ '& .MuiSelect-select': { py: 0.75 } }}
+            >
+              <MenuItem value="fr">Français</MenuItem>
+              <MenuItem value="ar">العربية</MenuItem>
+            </Select>
+          </FormControl>
         </Toolbar>
       </AppBar>
       <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>

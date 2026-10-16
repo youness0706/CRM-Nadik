@@ -188,9 +188,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 'id': org.id,
                 'name': org.name,
                 'slug': org.slug,
+                'description': org.description,
+                'email': org.email,
+                'phone_number': org.phone_number,
+                'location': org.location,
                 'subscription_tier': org.subscription_tier,
                 'subscription_status': org.subscription_status,
                 'days_remaining': org.days_remaining,
+                'days_until_expiration': org.days_until_expiration,
                 'is_active': org.is_active,
             }
         except Staff.DoesNotExist:
@@ -207,6 +212,20 @@ class UserProfileSerializer(serializers.ModelSerializer):
             return Staff.objects.get(user=obj).role
         except Staff.DoesNotExist:
             return None
+
+
+class OrganizationSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrganizationInfo
+        fields = ['name', 'slug', 'description', 'email', 'phone_number', 'location']
+
+    def validate_slug(self, value):
+        queryset = OrganizationInfo.objects.filter(slug=value)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError('This organization slug is already taken.')
+        return value
 
 
 class ChangePasswordSerializer(serializers.Serializer):

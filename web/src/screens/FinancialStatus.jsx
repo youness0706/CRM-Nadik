@@ -8,8 +8,10 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import apiClient from '../services/api';
 import { getApiErrorMessage } from '../services/errors';
+import { useLanguage } from '../state/LanguageContext';
 
 export default function FinancialStatus() {
+  const { t } = useLanguage();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -42,9 +44,9 @@ export default function FinancialStatus() {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold">Financial Status</Typography>
+        <Typography variant="h4" fontWeight="bold">{t('Financial Status')}</Typography>
         <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel>Year</InputLabel>
+          <InputLabel>{t('Year')}</InputLabel>
           <Select value={year} label="Year" onChange={(e) => setYear(e.target.value)}>
             {years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
           </Select>
@@ -60,7 +62,7 @@ export default function FinancialStatus() {
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Box>
-                  <Typography color="text.secondary" variant="body2" fontWeight="500">Total Income</Typography>
+                  <Typography color="text.secondary" variant="body2" fontWeight="500">{t('Total Income')}</Typography>
                   <Typography variant="h5" fontWeight="bold" color="success.main">
                     {data?.total_income?.toFixed(2)} DH
                   </Typography>
@@ -75,7 +77,7 @@ export default function FinancialStatus() {
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Box>
-                  <Typography color="text.secondary" variant="body2" fontWeight="500">Total Expenses</Typography>
+                  <Typography color="text.secondary" variant="body2" fontWeight="500">{t('Total Expenses')}</Typography>
                   <Typography variant="h5" fontWeight="bold" color="error.main">
                     {data?.total_expenses?.toFixed(2)} DH
                   </Typography>
@@ -90,11 +92,11 @@ export default function FinancialStatus() {
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Box>
-                  <Typography color="text.secondary" variant="body2" fontWeight="500">Staff Salaries</Typography>
+                  <Typography color="text.secondary" variant="body2" fontWeight="500">{t('Staff Salaries')}</Typography>
                   <Typography variant="h5" fontWeight="bold" color="info.main">
                     {data?.total_salaries?.toFixed(2)} DH
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">Rent: {data?.rent?.toFixed(2)} DH</Typography>
+                  <Typography variant="caption" color="text.secondary">{t('Rent:')} {data?.rent?.toFixed(2)} DH</Typography>
                 </Box>
               </Box>
             </CardContent>
@@ -105,7 +107,7 @@ export default function FinancialStatus() {
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Box>
-                  <Typography color="text.secondary" variant="body2" fontWeight="500">Net Profit</Typography>
+                  <Typography color="text.secondary" variant="body2" fontWeight="500">{t('Net Profit')}</Typography>
                   <Typography variant="h5" fontWeight="bold" color={data?.net_profit >= 0 ? 'success.main' : 'error.main'}>
                     {data?.net_profit?.toFixed(2)} DH
                   </Typography>
@@ -119,7 +121,7 @@ export default function FinancialStatus() {
 
       {/* Monthly Breakdown Table */}
       <Paper sx={{ p: 3, borderRadius: 2, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-        <Typography variant="h6" gutterBottom fontWeight="600">Monthly Income Breakdown</Typography>
+        <Typography variant="h6" gutterBottom fontWeight="600">{t('Monthly Income Breakdown')}</Typography>
         <Divider sx={{ mb: 3 }} />
         <Grid container spacing={2}>
           {data?.monthly_income?.map((m) => (

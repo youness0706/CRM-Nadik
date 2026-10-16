@@ -1,15 +1,16 @@
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, Prefetch, Q, Sum
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api.auth.serializers import RegisterSerializer
-from trainers.models import OrganizationInfo, OrganizationPayment, Staff
+from trainers.models import OrganizationInfo, OrganizationPayment, PlatformExpense, Staff
 
 
 class IsPlatformAdmin(BasePermission):
@@ -27,6 +28,30 @@ class RenewalSerializer(serializers.Serializer):
         default='cash',
     )
     notes = serializers.CharField(required=False, allow_blank=True)
+
+
+class PlatformOrganizationUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrganizationInfo
+        fields = [
+            'name', 'slug', 'description', 'email', 'phone_number', 'location',
+            'subscription_tier', 'max_trainers', 'is_active',
+        ]
+
+    def validate_slug(self, value):
+        queryset = OrganizationInfo.objects.filter(slug=value)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError('This organization slug is already taken.')
+        return value
+
+
+class PlatformExpenseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PlatformExpense
+        fields = ['id', 'title', 'description', 'amount', 'date', 'created_at']
+        read_only_fields = ['id', 'created_at']
 
 
 def _organization_queryset():
@@ -72,6 +97,7 @@ def _organization_payload(organization, include_details=False):
         'location': organization.location,
         'is_active': organization.is_active,
         'subscription_tier': organization.subscription_tier,
+        'max_trainers': organization.max_trainers,
         'subscription_status': organization.subscription_status,
         'subscription_start': organization.subscription_start_date,
         'subscription_end': organization.subscription_end_date,
@@ -132,6 +158,18 @@ class OrganizationDetailView(PlatformAdminAPIView):
         organization = get_object_or_404(_organization_queryset(), pk=pk)
         return Response(_organization_payload(organization, include_details=True))
 
+    def patch(self, request, pk):
+        organization = get_object_or_404(OrganizationInfo, pk=pk)
+        serializer = PlatformOrganizationUpdateSerializer(
+            organization,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        organization = _organization_queryset().get(pk=organization.pk)
+        return Response(_organization_payload(organization, include_details=True))
+
 
 class OrganizationRenewalView(PlatformAdminAPIView):
     def post(self, request, pk):
@@ -165,3 +203,60 @@ class OrganizationRenewalView(PlatformAdminAPIView):
                 'subscription_end': payment.subscription_end,
             },
         }, status=status.HTTP_201_CREATED)
+
+
+class PlatformDashboardView(PlatformAdminAPIView):
+    def get(self, request):
+        try:
+            year = int(request.query_params.get('year', timezone.now().year))
+        except (TypeError, ValueError):
+            return Response({'detail': 'Year must be a valid number.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        organizations = list(_organization_queryset())
+        subscription_payments = OrganizationPayment.objects.filter(payment_date__year=year)
+        expenses = PlatformExpense.objects.filter(date__year=year)
+        monthly = []
+        for month in range(1, 13):
+            income = subscription_payments.filter(payment_date__month=month).aggregate(total=Sum('amount'))['total'] or 0
+            cost = expenses.filter(date__month=month).aggregate(total=Sum('amount'))['total'] or 0
+            monthly.append({
+                'month': month,
+                'income': float(income),
+                'expenses': float(cost),
+                'net': float(income - cost),
+            })
+
+        organization_income = {
+            row['organization_id']: row['total']
+            for row in subscription_payments.values('organization_id').annotate(total=Sum('amount'))
+        }
+        organization_rows = []
+        for organization in organizations:
+            row = _organization_payload(organization)
+            row['subscription_income'] = float(organization_income.get(organization.id, 0))
+            organization_rows.append(row)
+
+        total_income = subscription_payments.aggregate(total=Sum('amount'))['total'] or 0
+        total_expenses = expenses.aggregate(total=Sum('amount'))['total'] or 0
+        recent_expenses = PlatformExpenseSerializer(expenses.order_by('-date', '-created_at')[:100], many=True).data
+        return Response({
+            'year': year,
+            'metrics': {
+                'organization_count': len(organizations),
+                'active_organizations': sum(organization.is_active for organization in organizations),
+                'trainee_count': sum(organization.total_trainees for organization in organizations),
+                'staff_count': sum(organization.staff_count for organization in organizations),
+                'subscription_income': float(total_income),
+                'platform_expenses': float(total_expenses),
+                'net_income': float(total_income - total_expenses),
+            },
+            'monthly': monthly,
+            'organizations': organization_rows,
+            'expenses': recent_expenses,
+        })
+
+    def post(self, request):
+        serializer = PlatformExpenseSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        expense = serializer.save(created_by=request.user)
+        return Response(PlatformExpenseSerializer(expense).data, status=status.HTTP_201_CREATED)

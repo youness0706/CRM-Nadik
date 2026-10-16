@@ -25,6 +25,12 @@ function formatDate(value) {
   return new Date(value).toLocaleDateString();
 }
 
+function subscriptionState(organization) {
+  if (!organization.is_active) return 'Suspended';
+  if (organization.days_remaining !== null && organization.days_remaining < 0) return 'Expired';
+  return organization.subscription_status;
+}
+
 export default function PlatformOrganizations() {
   const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +44,9 @@ export default function PlatformOrganizations() {
   const [renewOpen, setRenewOpen] = useState(false);
   const [renewLoading, setRenewLoading] = useState(false);
   const [renewal, setRenewal] = useState(INITIAL_RENEWAL);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [organizationEdit, setOrganizationEdit] = useState(null);
 
   const loadOrganizations = async () => {
     setLoading(true);
@@ -110,6 +119,54 @@ export default function PlatformOrganizations() {
     }
   };
 
+  const openEdit = () => {
+    if (!selected) return;
+    setOrganizationEdit({
+      name: selected.name || '',
+      slug: selected.slug || '',
+      description: selected.description || '',
+      email: selected.email || '',
+      phone_number: selected.phone_number || '',
+      location: selected.location || '',
+      subscription_tier: selected.subscription_tier || 'free',
+      max_trainers: selected.max_trainers ?? 50,
+      is_active: selected.is_active,
+    });
+    setDialogError('');
+    setEditOpen(true);
+  };
+
+  const handleEdit = async (event) => {
+    event.preventDefault();
+    if (!selected || !organizationEdit) return;
+    setEditLoading(true);
+    setDialogError('');
+    try {
+      const response = await apiClient.patch(`/platform/organizations/${selected.id}/`, organizationEdit);
+      setSelected(response.data);
+      setEditOpen(false);
+      await loadOrganizations();
+    } catch (requestError) {
+      setDialogError(getApiErrorMessage(requestError, 'Unable to update the organization.'));
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const toggleOrganizationActive = async () => {
+    if (!selected) return;
+    setDialogError('');
+    try {
+      const response = await apiClient.patch(`/platform/organizations/${selected.id}/`, {
+        is_active: !selected.is_active,
+      });
+      setSelected(response.data);
+      await loadOrganizations();
+    } catch (requestError) {
+      setDialogError(getApiErrorMessage(requestError, 'Unable to change organization status.'));
+    }
+  };
+
   const setOrgField = (event) => {
     setOrganizationForm((current) => ({ ...current, [event.target.name]: event.target.value }));
   };
@@ -158,12 +215,12 @@ export default function PlatformOrganizations() {
                 <TableCell>
                   <Chip
                     size="small"
-                    label={`${organization.subscription_status} · ${organization.is_active ? 'Active' : 'Inactive'}`}
-                    color={organization.is_active ? 'success' : 'default'}
+                    label={subscriptionState(organization)}
+                    color={!organization.is_active ? 'default' : organization.days_remaining < 0 ? 'error' : 'success'}
                   />
                 </TableCell>
                 <TableCell>
-                  {organization.days_remaining === null ? 'Not set' : `${organization.days_remaining} days`}
+                  {organization.days_remaining === null ? 'Not set' : organization.days_remaining < 0 ? `${Math.abs(organization.days_remaining)} days overdue` : `${organization.days_remaining} days`}
                   <Typography display="block" variant="caption" color="text.secondary">
                     {formatDate(organization.subscription_end)}
                   </Typography>
@@ -181,9 +238,15 @@ export default function PlatformOrganizations() {
             {selected?.name}
             <Typography variant="body2" color="text.secondary">{selected?.slug}</Typography>
           </Box>
-          <Button startIcon={<AutorenewIcon />} variant="outlined" onClick={() => { setDialogError(''); setRenewOpen(true); }}>
-            Renew subscription
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button variant="outlined" onClick={openEdit}>Edit organization</Button>
+            <Button variant="outlined" onClick={toggleOrganizationActive}>
+              {selected?.is_active ? 'Suspend' : 'Reactivate'}
+            </Button>
+            <Button startIcon={<AutorenewIcon />} variant="contained" onClick={() => { setDialogError(''); setRenewOpen(true); }}>
+              Renew subscription
+            </Button>
+          </Box>
         </DialogTitle>
         <DialogContent dividers>
           {dialogError && <Alert severity="error" sx={{ mb: 2 }}>{dialogError}</Alert>}
@@ -198,9 +261,10 @@ export default function PlatformOrganizations() {
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="overline">Subscription</Typography>
-                  <Typography>{selected.subscription_tier} · {selected.subscription_status}</Typography>
+                  <Typography>{selected.subscription_tier} · {subscriptionState(selected)}</Typography>
+                  <Typography color="text.secondary">Trainee limit: {selected.max_trainers ?? 'Not set'}</Typography>
                   <Typography color="text.secondary">{formatDate(selected.subscription_start)} to {formatDate(selected.subscription_end)}</Typography>
-                  <Typography color="text.secondary">{selected.days_remaining ?? '—'} days remaining</Typography>
+                  <Typography color="text.secondary">{selected.days_remaining === null ? 'No renewal date' : selected.days_remaining < 0 ? `${Math.abs(selected.days_remaining)} days overdue` : `${selected.days_remaining} days remaining`}</Typography>
                 </Grid>
                 <Grid item xs={12}>
                   <Typography variant="overline">Description</Typography>
@@ -246,6 +310,33 @@ export default function PlatformOrganizations() {
           )}
         </DialogContent>
         <DialogActions><Button onClick={() => setSelected(null)}>Close</Button></DialogActions>
+      </Dialog>
+
+      <Dialog open={editOpen} onClose={() => !editLoading && setEditOpen(false)} maxWidth="sm" fullWidth>
+        <form onSubmit={handleEdit}>
+          <DialogTitle>Edit {selected?.name}</DialogTitle>
+          <DialogContent dividers>
+            {dialogError && <Alert severity="error" sx={{ mb: 2 }}>{dialogError}</Alert>}
+            {organizationEdit && <Grid container spacing={2}>
+              <Grid item xs={12}><TextField fullWidth required label="Name" value={organizationEdit.name} onChange={(event) => setOrganizationEdit({ ...organizationEdit, name: event.target.value })} /></Grid>
+              <Grid item xs={12}><TextField fullWidth required label="Slug" value={organizationEdit.slug} onChange={(event) => setOrganizationEdit({ ...organizationEdit, slug: event.target.value })} /></Grid>
+              <Grid item xs={12}><TextField fullWidth type="email" label="Email" value={organizationEdit.email} onChange={(event) => setOrganizationEdit({ ...organizationEdit, email: event.target.value })} /></Grid>
+              <Grid item xs={12} sm={6}><TextField fullWidth label="Phone" value={organizationEdit.phone_number} onChange={(event) => setOrganizationEdit({ ...organizationEdit, phone_number: event.target.value })} /></Grid>
+              <Grid item xs={12} sm={6}><TextField fullWidth label="Location" value={organizationEdit.location} onChange={(event) => setOrganizationEdit({ ...organizationEdit, location: event.target.value })} /></Grid>
+              <Grid item xs={12}><TextField fullWidth multiline minRows={2} label="Description" value={organizationEdit.description} onChange={(event) => setOrganizationEdit({ ...organizationEdit, description: event.target.value })} /></Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField select fullWidth label="Plan" value={organizationEdit.subscription_tier} onChange={(event) => setOrganizationEdit({ ...organizationEdit, subscription_tier: event.target.value })}>
+                  {['free', 'basic', 'premium'].map((tier) => <MenuItem key={tier} value={tier}>{tier}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} sm={6}><TextField fullWidth type="number" min="1" label="Trainee limit" value={organizationEdit.max_trainers} onChange={(event) => setOrganizationEdit({ ...organizationEdit, max_trainers: Number(event.target.value) })} /></Grid>
+            </Grid>}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditOpen(false)} disabled={editLoading}>Cancel</Button>
+            <Button type="submit" variant="contained" disabled={editLoading}>{editLoading ? 'Saving...' : 'Save changes'}</Button>
+          </DialogActions>
+        </form>
       </Dialog>
 
       <Dialog open={createOpen} onClose={() => !createLoading && setCreateOpen(false)} maxWidth="md" fullWidth>

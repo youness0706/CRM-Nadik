@@ -12,12 +12,13 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from django.contrib.auth import authenticate
-from trainers.models import OrganizationInfo
+from trainers.models import OrganizationInfo, Staff
 
 from .serializers import (
     NadikTokenObtainPairSerializer,
     RegisterSerializer,
     UserProfileSerializer,
+    OrganizationSettingsSerializer,
     ChangePasswordSerializer,
 )
 
@@ -170,6 +171,38 @@ class MeView(APIView):
             {'success': False, 'error': 'Validation failed', 'detail': serializer.errors},
             status=status.HTTP_400_BAD_REQUEST
         )
+
+
+class OrganizationSettingsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=['auth'], summary='Update organization settings')
+    def patch(self, request):
+        try:
+            staff = Staff.objects.select_related('organization').get(user=request.user)
+        except Staff.DoesNotExist:
+            return Response(
+                {'success': False, 'error': 'This account is not linked to an organization.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not staff.is_admin:
+            return Response(
+                {'success': False, 'error': 'Only organization admins can update these settings.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = OrganizationSettingsSerializer(
+            staff.organization,
+            data=request.data,
+            partial=True,
+        )
+        if not serializer.is_valid():
+            return Response(
+                {'success': False, 'error': 'Validation failed', 'detail': serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer.save()
+        return Response({'success': True, 'data': serializer.data})
 
 
 class ChangePasswordView(APIView):

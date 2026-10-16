@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 
 import Login from './screens/Login';
 import Register from './screens/Register';
 import Dashboard from './screens/Dashboard';
+import PlatformDashboard from './screens/PlatformDashboard';
 import StaffList from './screens/StaffList';
 import MemberList from './screens/MemberList';
 import PaymentList from './screens/PaymentList';
@@ -15,6 +16,8 @@ import FinancialStatus from './screens/FinancialStatus';
 import Settings from './screens/Settings';
 import PlatformOrganizations from './screens/PlatformOrganizations';
 import Layout from './components/Layout';
+import apiClient from './services/api';
+import { LanguageProvider } from './state/LanguageContext';
 
 const theme = createTheme({
   palette: {
@@ -108,6 +111,19 @@ const theme = createTheme({
   },
 });
 
+function DashboardRouter() {
+  const [platformAdmin, setPlatformAdmin] = useState(null);
+
+  useEffect(() => {
+    apiClient.get('/auth/me/')
+      .then((response) => setPlatformAdmin((response.data.data ?? response.data).is_platform_admin))
+      .catch(() => setPlatformAdmin(false));
+  }, []);
+
+  if (platformAdmin === null) return null;
+  return platformAdmin ? <PlatformDashboard /> : <Dashboard />;
+}
+
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('access_token');
   if (!token) return <Navigate to="/" replace />;
@@ -118,11 +134,12 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
-        <Routes>
+      <LanguageProvider>
+        <Router>
+          <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><DashboardRouter /></ProtectedRoute>} />
           <Route path="/staff" element={<ProtectedRoute><StaffList /></ProtectedRoute>} />
           <Route path="/members" element={<ProtectedRoute><MemberList /></ProtectedRoute>} />
           <Route path="/payments" element={<ProtectedRoute><PaymentList /></ProtectedRoute>} />
@@ -133,8 +150,9 @@ function App() {
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/platform/organizations" element={<ProtectedRoute><PlatformOrganizations /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
+          </Routes>
+        </Router>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

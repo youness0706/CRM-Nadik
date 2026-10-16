@@ -15,6 +15,7 @@ import NewReleasesIcon from '@mui/icons-material/NewReleases';
 import ArticleIcon from '@mui/icons-material/Article';
 import apiClient from '../services/api';
 import { getApiErrorMessage } from '../services/errors';
+import { useLanguage } from '../state/LanguageContext';
 
 function StatCard({ icon, title, value, color = 'primary.main', subtitle }) {
   return (
@@ -44,6 +45,7 @@ function StatCard({ icon, title, value, color = 'primary.main', subtitle }) {
 }
 
 export default function Dashboard() {
+  const { t } = useLanguage();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -76,21 +78,28 @@ export default function Dashboard() {
     return <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>;
   }
 
+  const daysUntilExpiration = stats?.subscription?.days_until_expiration
+    ?? stats?.subscription?.days_remaining;
+
   return (
     <Box>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" fontWeight="bold" gutterBottom color="text.primary">
-          Dashboard
+          {t('Dashboard')}
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Welcome back to {stats?.organization_name || 'Nadik'}
+          {t('Welcome back to')} {stats?.organization_name || 'Nadik'}
         </Typography>
       </Box>
 
       {/* Subscription Warning */}
-      {stats?.subscription?.days_remaining <= 7 && (
+      {daysUntilExpiration <= 7 && (
         <Alert severity="warning" sx={{ mb: 4, borderRadius: 2 }}>
-          Your subscription expires in {stats.subscription.days_remaining} days.
+          {daysUntilExpiration < 0
+            ? `Your subscription expired ${Math.abs(daysUntilExpiration)} days ago.`
+            : daysUntilExpiration === 0
+              ? 'Your subscription expires today.'
+              : `Your subscription expires in ${daysUntilExpiration} days.`}
         </Alert>
       )}
 
@@ -99,16 +108,16 @@ export default function Dashboard() {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             icon={<PeopleIcon fontSize="inherit" />}
-            title="Active Members"
+            title={t('Active Members')}
             value={stats?.total_members || 0}
             color="primary.main"
-            subtitle={`${stats?.new_members || 0} new this month`}
+            subtitle={`${stats?.new_members || 0} ${t('new this month')}`}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             icon={<WarningIcon fontSize="inherit" />}
-            title="Unpaid This Month"
+            title={t('Unpaid This Month')}
             value={stats?.unpaid_count || 0}
             color="warning.main"
           />
@@ -116,16 +125,16 @@ export default function Dashboard() {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             icon={<TrendingUpIcon fontSize="inherit" />}
-            title="Month Income"
+            title={t('Month Income')}
             value={`${stats?.month_income?.toFixed(0) || 0} DH`}
             color="success.main"
-            subtitle={`${stats?.today_income?.toFixed(0) || 0} DH today`}
+            subtitle={`${stats?.today_income?.toFixed(0) || 0} DH ${t('today')}`}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             icon={<TrendingDownIcon fontSize="inherit" />}
-            title="Month Expenses"
+            title={t('Month Expenses')}
             value={`${stats?.month_expenses?.toFixed(0) || 0} DH`}
             color="error.main"
           />
@@ -137,7 +146,7 @@ export default function Dashboard() {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             icon={<GroupIcon fontSize="inherit" />}
-            title="Staff"
+            title={t('Staff')}
             value={stats?.total_staff || 0}
             color="info.main"
           />
@@ -145,7 +154,7 @@ export default function Dashboard() {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             icon={<PersonOffIcon fontSize="inherit" />}
-            title="Inactive Members"
+            title={t('Inactive Members')}
             value={stats?.inactive_members || 0}
             color="text.secondary"
           />
@@ -153,7 +162,7 @@ export default function Dashboard() {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             icon={<ArticleIcon fontSize="inherit" />}
-            title="Events"
+            title={t('Events')}
             value={stats?.total_articles || 0}
             color="secondary.main"
           />
@@ -161,10 +170,10 @@ export default function Dashboard() {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             icon={<PaymentIcon fontSize="inherit" />}
-            title="Added Payments"
+            title={t('Added Payments')}
             value={`${stats?.month_added_payments?.toFixed(0) || 0} DH`}
             color="success.light"
-            subtitle="This month"
+            subtitle={t('This month')}
           />
         </Grid>
       </Grid>

@@ -2,9 +2,11 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from django.db.models import Sum, Count, Q
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from datetime import timedelta
+from datetime import datetime, timedelta
 import calendar
 
 from trainers.models import (
@@ -58,6 +60,7 @@ class StaffViewSet(BaseOrganizationViewSet):
 class TrainerViewSet(BaseOrganizationViewSet):
     queryset = Trainer.objects.all()
     serializer_class = TrainerSerializer
+    search_fields = ['first_name', 'last_name', 'phone', 'email', 'CIN']
 
     def get_serializer_class(self):
         if self.action in ('create', 'update', 'partial_update'):
@@ -70,7 +73,7 @@ class TrainerViewSet(BaseOrganizationViewSet):
 
         # Filter by active/inactive
         is_active = self.request.query_params.get('is_active')
-        if is_active is not None:
+        if is_active is not None and is_active.lower() != 'all':
             qs = qs.filter(is_active=is_active.lower() == 'true')
 
         # Filter by category
@@ -133,6 +136,51 @@ class AddedpayViewSet(BaseOrganizationViewSet):
     serializer_class = AddedpaySerializer
 
 
+class TrainerDocumentsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def _get_trainer(self, request, trainer_pk):
+        try:
+            staff = Staff.objects.select_related('organization').get(user=request.user)
+        except Staff.DoesNotExist:
+            raise PermissionDenied('You do not belong to any organization.')
+        return get_object_or_404(Trainer, pk=trainer_pk, organization=staff.organization)
+
+    def get(self, request, trainer_pk):
+        trainer = self._get_trainer(request, trainer_pk)
+        documents = TrainerDocument.objects.filter(trainer=trainer).order_by('-uploaded_at')
+        serializer = TrainerDocumentSerializer(documents, many=True, context={'request': request})
+        return Response(serializer.data)
+
+    def post(self, request, trainer_pk):
+        trainer = self._get_trainer(request, trainer_pk)
+        payload = request.data.copy()
+        payload['trainer'] = trainer.pk
+        serializer = TrainerDocumentSerializer(data=payload, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class TrainerDocumentDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, trainer_pk, pk):
+        try:
+            staff = Staff.objects.select_related('organization').get(user=request.user)
+        except Staff.DoesNotExist:
+            raise PermissionDenied('You do not belong to any organization.')
+        document = get_object_or_404(
+            TrainerDocument,
+            pk=pk,
+            trainer_id=trainer_pk,
+            trainer__organization=staff.organization,
+        )
+        document.file.delete(save=False)
+        document.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 # ─── Dashboard Stats API ────────────────────────────────────────────
 
 @api_view(['GET'])
@@ -147,6 +195,12 @@ def dashboard_stats(request):
 
     today = timezone.now().date()
     current_month_start = today.replace(day=1)
+    month_start_datetime = timezone.make_aware(
+        datetime.combine(current_month_start, datetime.min.time())
+    )
+    tomorrow_datetime = timezone.make_aware(
+        datetime.combine(today + timedelta(days=1), datetime.min.time())
+    )
 
     # Counts
     total_members = Trainer.objects.filter(organization=org, is_active=True).count()
@@ -170,15 +224,15 @@ def dashboard_stats(request):
     # Expenses this month
     month_expenses = Costs.objects.filter(
         organization=org,
-        date__gte=current_month_start,
-        date__lte=today,
+        date__gte=month_start_datetime,
+        date__lt=tomorrow_datetime,
     ).aggregate(total=Sum('amount'))['total'] or 0
 
     # Additional payments this month
     month_added = Addedpay.objects.filter(
         organization=org,
-        date__gte=current_month_start,
-        date__lte=today,
+        date__gte=month_start_datetime,
+        date__lt=tomorrow_datetime,
     ).aggregate(total=Sum('amount'))['total'] or 0
 
     # Subscription info

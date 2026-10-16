@@ -387,6 +387,27 @@ class OrganizationPayment(models.Model):
         return f"{self.organization.name} - {self.payment_date} - {self.amount} ريال ({self.duration_months} شهر)"
 
 
+class PlatformExpense(models.Model):
+    title = models.CharField(max_length=120)
+    description = models.TextField(blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    date = models.DateField(default=timezone.now)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='platform_expenses',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return self.title
+
+
 
 class Staff(models.Model):
     """Staff members belong to an organization"""

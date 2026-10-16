@@ -1,25 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button,
-  TextField, Grid, CircularProgress, Alert
+  TextField, Grid, CircularProgress, Alert, MenuItem, Autocomplete
 } from '@mui/material';
 import apiClient from '../services/api';
 import { getApiErrorMessage } from '../services/errors';
 
 const DEFAULT_EVENT = {
-  title: '', date: new Date().toISOString().split('T')[0], location: '',
-  content: '', category: 'تظاهرة', area: 'وطني', costs: '', participetion_price: ''
+  title: '', date: new Date().toISOString().split('T')[0], location: 'Club',
+  content: '', category: 'League', area: 'national', costs: '0', participetion_price: '0', trainees: []
 };
+
+const EVENT_CATEGORIES = [
+  ['League', 'Competition'], ['training', 'Training'], ['dawri', 'League'],
+  ['test', 'Exam'], ['out', 'Trip'], ['other', 'Other'],
+];
+
+const EVENT_AREAS = [
+  ['local', 'Local'], ['reigion', 'Regional'], ['national', 'National'],
+];
 
 export default function EventDialog({ open, onClose, event = null, onSuccess }) {
   const [formData, setFormData] = useState(DEFAULT_EVENT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [members, setMembers] = useState([]);
+
+  const fetchMembers = async (search = '') => {
+    try {
+      const response = await apiClient.get(`/crm/members/?is_active=true&per_page=200&search=${encodeURIComponent(search)}`);
+      setMembers(response.data.results || response.data || []);
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, 'Unable to load members for this event.'));
+    }
+  };
 
   useEffect(() => {
     if (open) {
-      setFormData(event ? { ...event } : DEFAULT_EVENT);
+      setFormData(event ? { ...DEFAULT_EVENT, ...event, trainees: event.trainees || [] } : { ...DEFAULT_EVENT });
       setError(null);
+      fetchMembers();
     }
   }, [open, event]);
 
@@ -57,25 +77,41 @@ export default function EventDialog({ open, onClose, event = null, onSuccess }) 
               <TextField fullWidth required label="Title" name="title" value={formData.title} onChange={handleChange} />
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth label="Description/Content" name="content" value={formData.content} onChange={handleChange} multiline rows={3} />
+              <TextField fullWidth required label="Description/Content" name="content" value={formData.content} onChange={handleChange} multiline rows={3} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth type="date" required label="Date" name="date" value={formData.date} onChange={handleChange} InputLabelProps={{ shrink: true }} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="Location" name="location" value={formData.location} onChange={handleChange} />
+              <TextField fullWidth required label="Location" name="location" value={formData.location} onChange={handleChange} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="Category" name="category" value={formData.category} onChange={handleChange} />
+              <TextField select fullWidth required label="Category" name="category" value={formData.category} onChange={handleChange}>
+                {EVENT_CATEGORIES.map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}
+              </TextField>
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="Area" name="area" value={formData.area} onChange={handleChange} />
+              <TextField select fullWidth required label="Area" name="area" value={formData.area} onChange={handleChange}>
+                {EVENT_AREAS.map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}
+              </TextField>
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth type="number" label="Event Costs (MAD)" name="costs" value={formData.costs} onChange={handleChange} inputProps={{ step: "0.01", min: "0" }} />
+              <TextField fullWidth required type="number" label="Event Costs (MAD)" name="costs" value={formData.costs} onChange={handleChange} inputProps={{ step: "0.01", min: "0" }} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth type="number" label="Participation Price (MAD)" name="participetion_price" value={formData.participetion_price} onChange={handleChange} inputProps={{ step: "0.01", min: "0" }} />
+              <TextField fullWidth required type="number" label="Participation Price (MAD)" name="participetion_price" value={formData.participetion_price} onChange={handleChange} inputProps={{ step: "0.01", min: "0" }} />
+            </Grid>
+            <Grid item xs={12}>
+              <Autocomplete
+                multiple
+                options={members}
+                value={members.filter((member) => formData.trainees?.includes(member.id))}
+                getOptionLabel={(member) => `${member.first_name} ${member.last_name}`}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                onInputChange={(event, value, reason) => reason === 'input' && fetchMembers(value)}
+                onChange={(event, selectedMembers) => setFormData((current) => ({ ...current, trainees: selectedMembers.map((member) => member.id) }))}
+                renderInput={(params) => <TextField {...params} label="Participants" placeholder="Search trainees" />}
+              />
             </Grid>
           </Grid>
         </DialogContent>

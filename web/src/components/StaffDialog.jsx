@@ -4,14 +4,18 @@ import {
   TextField, Grid, FormControlLabel, Checkbox, CircularProgress, Alert
 } from '@mui/material';
 import apiClient from '../services/api';
+import { getApiErrorMessage } from '../services/errors';
+import { useLanguage } from '../state/LanguageContext';
 
 const DEFAULT_STAFF = {
   username: '', first_name: '', last_name: '', email: '', password: '',
   role: 'Staff', is_admin: false, salary: 0, phone_number: '',
-  started: new Date().toISOString().split('T')[0]
+  started: new Date().toISOString().split('T')[0],
+  datepay: new Date().toISOString().split('T')[0],
 };
 
 export default function StaffDialog({ open, onClose, staff = null, onSuccess }) {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState(DEFAULT_STAFF);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -50,7 +54,7 @@ export default function StaffDialog({ open, onClose, staff = null, onSuccess }) 
       }
       onSuccess();
     } catch (err) {
-      setError(err.response?.data?.detail || 'An error occurred while saving the staff member.');
+      setError(getApiErrorMessage(err, 'An error occurred while saving the staff member.'));
       console.error(err);
     } finally {
       setLoading(false);
@@ -60,50 +64,53 @@ export default function StaffDialog({ open, onClose, staff = null, onSuccess }) 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <form onSubmit={handleSubmit}>
-        <DialogTitle>{staff ? 'Edit Staff Member' : 'Add New Staff Member'}</DialogTitle>
+        <DialogTitle>{staff ? t('Edit Staff') : t('Add New Staff Member')}</DialogTitle>
         <DialogContent dividers>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth required label="Username" name="username" value={formData.username} onChange={handleChange} />
+              <TextField fullWidth required label={t('Username')} name="username" value={formData.username} onChange={handleChange} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth type="email" required label="Email" name="email" value={formData.email} onChange={handleChange} />
+              <TextField fullWidth type="email" required label={t('Email')} name="email" value={formData.email} onChange={handleChange} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="First Name" name="first_name" value={formData.first_name || ''} onChange={handleChange} />
+              <TextField fullWidth label={t('First Name')} name="first_name" value={formData.first_name || ''} onChange={handleChange} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="Last Name" name="last_name" value={formData.last_name || ''} onChange={handleChange} />
+              <TextField fullWidth label={t('Last Name')} name="last_name" value={formData.last_name || ''} onChange={handleChange} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth type="password" required={!staff} label={staff ? 'New Password (optional)' : 'Password'} name="password" value={formData.password} onChange={handleChange} />
+              <TextField fullWidth type="password" required={!staff} label={staff ? t('New Password (optional)') : t('Password')} name="password" value={formData.password} onChange={handleChange} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="Phone" name="phone_number" value={formData.phone_number || ''} onChange={handleChange} />
+              <TextField fullWidth label={t('Phone')} name="phone_number" value={formData.phone_number || ''} onChange={handleChange} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="Role" name="role" value={formData.role || ''} onChange={handleChange} />
+              <TextField fullWidth label={t('Role')} name="role" value={formData.role || ''} onChange={handleChange} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth type="number" label="Salary (MAD)" name="salary" value={formData.salary || 0} onChange={handleChange} inputProps={{ step: "0.01", min: "0" }} />
+              <TextField fullWidth type="number" label={t('Salary (MAD)')} name="salary" value={formData.salary || 0} onChange={handleChange} inputProps={{ step: "0.01", min: "0" }} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth type="date" required label="Start Date" name="started" value={formData.started || ''} onChange={handleChange} InputLabelProps={{ shrink: true }} />
+              <TextField fullWidth type="date" required label={t('Started')} name="started" value={formData.started || ''} onChange={handleChange} InputLabelProps={{ shrink: true }} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth type="date" label={t('Last Salary Payment')} name="datepay" value={formData.datepay || ''} onChange={handleChange} InputLabelProps={{ shrink: true }} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControlLabel
                 control={<Checkbox name="is_admin" checked={formData.is_admin} onChange={handleChange} color="primary" />}
-                label="Is Admin"
+                label={t('Is Admin')}
                 sx={{ mt: 1 }}
               />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={onClose} disabled={loading}>Cancel</Button>
+          <Button onClick={onClose} disabled={loading}>{t('Cancel')}</Button>
           <Button type="submit" variant="contained" disabled={loading} startIcon={loading ? <CircularProgress size={20} /> : null}>
-            {staff ? 'Save Changes' : 'Add Staff'}
+            {staff ? t('Save Changes') : t('Add Staff')}
           </Button>
         </DialogActions>
       </form>

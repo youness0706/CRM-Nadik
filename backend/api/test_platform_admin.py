@@ -7,7 +7,7 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from trainers.models import OrganizationInfo, OrganizationPayment, Staff, Trainer
+from trainers.models import OrganizationInfo, OrganizationPayment, PlatformExpense, Staff, Trainer
 
 
 class PlatformOrganizationAdminTests(TestCase):
@@ -59,6 +59,42 @@ class PlatformOrganizationAdminTests(TestCase):
         self.assertEqual(organization['staff_count'], 1)
         self.assertEqual(organization['admins'][0]['username'], 'org-admin')
 
+    def test_platform_dashboard_reports_subscription_income_and_organization_totals(self):
+        self.client.force_authenticate(self.platform_admin)
+        OrganizationPayment.objects.create(
+            organization=self.organization,
+            amount=Decimal('500.00'),
+            duration_months=1,
+        )
+
+        response = self.client.get('/api/v1/platform/dashboard/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['metrics']['organization_count'], 1)
+        self.assertEqual(response.data['metrics']['trainee_count'], 1)
+        self.assertEqual(response.data['metrics']['subscription_income'], 500.0)
+
+    def test_platform_admin_can_add_platform_expenses(self):
+        self.client.force_authenticate(self.platform_admin)
+
+        response = self.client.post(
+            '/api/v1/platform/dashboard/',
+            {'title': 'Hosting', 'description': 'Cloud service', 'amount': '25.50', 'date': '2026-10-15'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        expense = PlatformExpense.objects.get(pk=response.data['id'])
+        self.assertEqual(expense.amount, Decimal('25.50'))
+        self.assertEqual(expense.created_by, self.platform_admin)
+
+    def test_organization_admin_cannot_access_platform_dashboard(self):
+        self.client.force_authenticate(self.org_admin)
+
+        response = self.client.get('/api/v1/platform/dashboard/')
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
     def test_platform_admin_can_view_organization_details(self):
         self.client.force_authenticate(self.platform_admin)
 
@@ -68,6 +104,34 @@ class PlatformOrganizationAdminTests(TestCase):
         self.assertEqual(response.data['staff'][0]['email'], 'org-admin@example.com')
         self.assertEqual(response.data['total_trainees'], 1)
         self.assertEqual(response.data['subscription_payments'], [])
+
+    def test_platform_admin_can_update_organization_and_suspend_it(self):
+        self.client.force_authenticate(self.platform_admin)
+
+        response = self.client.patch(
+            f'/api/v1/platform/organizations/{self.organization.pk}/',
+            {'subscription_tier': 'premium', 'max_trainers': 120, 'is_active': False},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.organization.refresh_from_db()
+        self.assertEqual(self.organization.subscription_tier, 'premium')
+        self.assertEqual(self.organization.max_trainers, 120)
+        self.assertFalse(self.organization.is_active)
+
+    def test_organization_admin_cannot_update_platform_organization(self):
+        self.client.force_authenticate(self.org_admin)
+
+        response = self.client.patch(
+            f'/api/v1/platform/organizations/{self.organization.pk}/',
+            {'is_active': False},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.organization.refresh_from_db()
+        self.assertTrue(self.organization.is_active)
 
     def test_platform_admin_can_create_organization_and_owner(self):
         self.client.force_authenticate(self.platform_admin)

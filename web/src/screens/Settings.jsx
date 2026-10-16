@@ -13,22 +13,74 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [organizationSaving, setOrganizationSaving] = useState(false);
 
-  // Form states
   const [passwordData, setPasswordData] = useState({ old_password: '', new_password: '', confirm_password: '' });
+  const [profileForm, setProfileForm] = useState({ first_name: '', last_name: '', email: '' });
+  const [organizationForm, setOrganizationForm] = useState({
+    name: '', slug: '', description: '', email: '', phone_number: '', location: '',
+  });
 
   useEffect(() => {
-    fetchProfile();
+    const loadProfile = async () => {
+      try {
+        const response = await apiClient.get('/auth/me/');
+        const profileData = response.data.data ?? response.data;
+        setProfile(profileData);
+        setProfileForm({
+          first_name: profileData.first_name || '',
+          last_name: profileData.last_name || '',
+          email: profileData.email || '',
+        });
+        setOrganizationForm({
+          name: profileData.organization?.name || '',
+          slug: profileData.organization?.slug || '',
+          description: profileData.organization?.description || '',
+          email: profileData.organization?.email || '',
+          phone_number: profileData.organization?.phone_number || '',
+          location: profileData.organization?.location || '',
+        });
+      } catch (requestError) {
+        setError(getApiErrorMessage(requestError, 'Failed to load profile details.'));
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadProfile();
   }, []);
 
-  const fetchProfile = async () => {
+  const handleProfileSave = async (event) => {
+    event.preventDefault();
+    setProfileSaving(true);
+    setError(null);
+    setSuccess(null);
     try {
-      const response = await apiClient.get('/auth/me/');
-      setProfile(response.data.data ?? response.data);
-    } catch (err) {
-      setError('Failed to load profile details.');
+      const response = await apiClient.patch('/auth/me/', profileForm);
+      const profileData = response.data.data ?? response.data;
+      setProfile(profileData);
+      setSuccess('Profile updated successfully.');
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, 'Failed to update profile.'));
     } finally {
-      setLoading(false);
+      setProfileSaving(false);
+    }
+  };
+
+  const handleOrganizationSave = async (event) => {
+    event.preventDefault();
+    setOrganizationSaving(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await apiClient.patch('/auth/organization/', organizationForm);
+      const organization = response.data.data ?? response.data;
+      setProfile((current) => ({ ...current, organization: { ...current.organization, ...organization } }));
+      setSuccess('Organization settings updated successfully.');
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, 'Failed to update organization settings.'));
+    } finally {
+      setOrganizationSaving(false);
     }
   };
 
@@ -71,20 +123,20 @@ export default function Settings() {
             <Typography variant="h6" fontWeight="bold" gutterBottom>Personal Profile</Typography>
             <Divider sx={{ mb: 3 }} />
             <Box sx={{ mb: 2 }}>
-              <Typography variant="body2" color="text.secondary">Name</Typography>
-              <Typography variant="body1" fontWeight="500">{profile?.first_name} {profile?.last_name}</Typography>
-            </Box>
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="body2" color="text.secondary">Email</Typography>
-              <Typography variant="body1" fontWeight="500">{profile?.email}</Typography>
-            </Box>
-            <Box sx={{ mb: 2 }}>
               <Typography variant="body2" color="text.secondary">Role</Typography>
               <Chip
                 label={profile?.is_platform_admin ? 'Platform Administrator' : profile?.is_admin ? 'Organization Admin' : 'Staff'}
                 color={profile?.is_platform_admin || profile?.is_admin ? 'primary' : 'default'}
                 size="small"
               />
+            </Box>
+            <Box component="form" onSubmit={handleProfileSave}>
+              <TextField fullWidth size="small" label="First name" sx={{ mb: 2 }} value={profileForm.first_name} onChange={(event) => setProfileForm({ ...profileForm, first_name: event.target.value })} />
+              <TextField fullWidth size="small" label="Last name" sx={{ mb: 2 }} value={profileForm.last_name} onChange={(event) => setProfileForm({ ...profileForm, last_name: event.target.value })} />
+              <TextField fullWidth size="small" required type="email" label="Email" sx={{ mb: 2 }} value={profileForm.email} onChange={(event) => setProfileForm({ ...profileForm, email: event.target.value })} />
+              <Button type="submit" variant="outlined" disabled={profileSaving} startIcon={profileSaving ? <CircularProgress size={18} /> : null}>
+                Save profile
+              </Button>
             </Box>
           </Paper>
           
@@ -109,15 +161,19 @@ export default function Settings() {
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" color="text.secondary">Status</Typography>
               <Chip 
-                label={profile?.organization?.subscription_status || 'Unknown'} 
-                color={profile?.organization?.is_active ? 'success' : 'error'} 
+                label={profile?.organization?.days_until_expiration < 0
+                  ? 'Expired'
+                  : profile?.organization?.subscription_status || 'Unknown'}
+                color={profile?.organization?.is_active && profile?.organization?.days_until_expiration >= 0 ? 'success' : 'error'} 
                 sx={{ mt: 0.5 }}
               />
             </Box>
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" color="text.secondary">Days Remaining</Typography>
               <Typography variant="body1" fontWeight="bold" color="warning.main">
-                {profile?.organization?.days_remaining || 0} days
+                {profile?.organization?.days_until_expiration < 0
+                  ? `${Math.abs(profile.organization.days_until_expiration)} days overdue`
+                  : `${profile?.organization?.days_until_expiration ?? profile?.organization?.days_remaining ?? 0} days`}
               </Typography>
             </Box>
           </Paper>
@@ -126,14 +182,17 @@ export default function Settings() {
             <Typography variant="h6" fontWeight="bold" gutterBottom>Organization</Typography>
             <Divider sx={{ mb: 3 }} />
             {profile?.organization ? (
-              <Box>
-                <Typography variant="body2" color="text.secondary">Name</Typography>
-                <Typography fontWeight="500" sx={{ mb: 2 }}>{profile.organization.name}</Typography>
-                <Typography variant="body2" color="text.secondary">Slug</Typography>
-                <Typography fontWeight="500">{profile.organization.slug}</Typography>
-                <Alert severity="info" sx={{ mt: 2 }}>
-                  Organization profile editing is not available in the current API.
-                </Alert>
+              <Box component="form" onSubmit={handleOrganizationSave}>
+                <TextField fullWidth size="small" required label="Organization name" sx={{ mb: 2 }} value={organizationForm.name} onChange={(event) => setOrganizationForm({ ...organizationForm, name: event.target.value })} disabled={!profile.is_admin} />
+                <TextField fullWidth size="small" required label="Slug" sx={{ mb: 2 }} value={organizationForm.slug} onChange={(event) => setOrganizationForm({ ...organizationForm, slug: event.target.value })} disabled={!profile.is_admin} />
+                <TextField fullWidth size="small" type="email" label="Organization email" sx={{ mb: 2 }} value={organizationForm.email} onChange={(event) => setOrganizationForm({ ...organizationForm, email: event.target.value })} disabled={!profile.is_admin} />
+                <TextField fullWidth size="small" label="Phone" sx={{ mb: 2 }} value={organizationForm.phone_number} onChange={(event) => setOrganizationForm({ ...organizationForm, phone_number: event.target.value })} disabled={!profile.is_admin} />
+                <TextField fullWidth size="small" label="Location" sx={{ mb: 2 }} value={organizationForm.location} onChange={(event) => setOrganizationForm({ ...organizationForm, location: event.target.value })} disabled={!profile.is_admin} />
+                <TextField fullWidth size="small" multiline minRows={2} label="Description" sx={{ mb: 2 }} value={organizationForm.description} onChange={(event) => setOrganizationForm({ ...organizationForm, description: event.target.value })} disabled={!profile.is_admin} />
+                <Button type="submit" variant="outlined" disabled={!profile.is_admin || organizationSaving} startIcon={organizationSaving ? <CircularProgress size={18} /> : null}>
+                  Save organization
+                </Button>
+                {!profile.is_admin && <Typography variant="caption" color="text.secondary" display="block" mt={1}>Only organization admins can edit these settings.</Typography>}
               </Box>
             ) : (
               <Alert severity="warning">This account is not linked to an organization.</Alert>
