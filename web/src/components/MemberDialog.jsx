@@ -7,6 +7,7 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import apiClient from '../services/api';
 import { getApiErrorMessage } from '../services/errors';
+import { useLanguage } from '../state/LanguageContext';
 
 const CATEGORIES = [
   { value: 'الصغار', label: 'Kids (الصغار)' },
@@ -41,6 +42,7 @@ const DEFAULT_MEMBER = {
 };
 
 export default function MemberDialog({ open, onClose, member = null, onSuccess }) {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState(DEFAULT_MEMBER);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -138,83 +140,83 @@ export default function MemberDialog({ open, onClose, member = null, onSuccess }
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <form onSubmit={handleSubmit}>
-        <DialogTitle>{member ? 'Edit Member' : 'Add New Member'}</DialogTitle>
+        <DialogTitle>{member ? t('Edit Member') : t('Add New Member')}</DialogTitle>
         <DialogContent dividers>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth required label="First Name" name="first_name" value={formData.first_name || ''} onChange={handleChange} />
+              <TextField fullWidth required label={t('First Name')} name="first_name" value={formData.first_name || ''} onChange={handleChange} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth required label="Last Name" name="last_name" value={formData.last_name || ''} onChange={handleChange} />
+              <TextField fullWidth required label={t('Last Name')} name="last_name" value={formData.last_name || ''} onChange={handleChange} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth required type="date" label="Date of Birth" name="birth_day" value={formData.birth_day || ''} onChange={handleChange} InputLabelProps={{ shrink: true }} />
+              <TextField fullWidth required type="date" label={t('Date of Birth')} name="birth_day" value={formData.birth_day || ''} onChange={handleChange} InputLabelProps={{ shrink: true }} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth required label="Phone" name="phone" value={formData.phone || ''} onChange={handleChange} />
+              <TextField fullWidth required label={t('Phone')} name="phone" value={formData.phone || ''} onChange={handleChange} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="Parent Phone" name="phone_parent" value={formData.phone_parent || ''} onChange={handleChange} />
+              <TextField fullWidth label={t('Parent Phone')} name="phone_parent" value={formData.phone_parent || ''} onChange={handleChange} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth type="email" label="Email" name="email" value={formData.email || ''} onChange={handleChange} />
+              <TextField fullWidth type="email" label={t('Email')} name="email" value={formData.email || ''} onChange={handleChange} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label="CIN" name="CIN" value={formData.CIN || ''} onChange={handleChange} />
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth label="Address" name="address" value={formData.address || ''} onChange={handleChange} />
+              <TextField fullWidth label={t('Address')} name="address" value={formData.address || ''} onChange={handleChange} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
-                <InputLabel>Gender</InputLabel>
-                <Select name="male_female" value={formData.male_female || 'male'} label="Gender" onChange={handleChange}>
-                  <MenuItem value="male">Male</MenuItem>
-                  <MenuItem value="female">Female</MenuItem>
+                <InputLabel>{t('Gender')}</InputLabel>
+                <Select name="male_female" value={formData.male_female || 'male'} label={t('Gender')} onChange={handleChange}>
+                  <MenuItem value="male">{t('Male')}</MenuItem>
+                  <MenuItem value="female">{t('Female')}</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
-                <InputLabel>Category</InputLabel>
-                <Select name="category" value={formData.category || 'كبار'} label="Category" onChange={handleChange}>
-                  {CATEGORIES.map(c => <MenuItem key={c.value} value={c.value}>{c.label}</MenuItem>)}
+                <InputLabel>{t('Category')}</InputLabel>
+                <Select name="category" value={formData.category || 'كبار'} label={t('Category')} onChange={handleChange}>
+                  {CATEGORIES.map(c => <MenuItem key={c.value} value={c.value}>{t(c.label)}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
-                <InputLabel>Belt</InputLabel>
-                <Select name="belt_degree" value={formData.belt_degree || 'أبيض'} label="Belt" onChange={handleChange}>
-                  {BELTS.map(b => <MenuItem key={b.value} value={b.value}>{b.label}</MenuItem>)}
+                <InputLabel>{t('Belt')}</InputLabel>
+                <Select name="belt_degree" value={formData.belt_degree || 'أبيض'} label={t('Belt')} onChange={handleChange}>
+                  {BELTS.map(b => <MenuItem key={b.value} value={b.value}>{t(b.label)}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="Education level" name="Degree" value={formData.Degree || ''} onChange={handleChange} />
+              <TextField fullWidth label={t('Education level')} name="Degree" value={formData.Degree || ''} onChange={handleChange} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth type="number" label="Height (cm)" name="tall" value={formData.tall || ''} onChange={handleChange} inputProps={{ min: 0, step: '0.01' }} />
+              <TextField fullWidth type="number" label={t('Height (cm)')} name="tall" value={formData.tall || ''} onChange={handleChange} inputProps={{ min: 0, step: '0.01' }} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth type="number" label="Weight (kg)" name="weight" value={formData.weight || ''} onChange={handleChange} inputProps={{ min: 0, step: '0.01' }} />
+              <TextField fullWidth type="number" label={t('Weight (kg)')} name="weight" value={formData.weight || ''} onChange={handleChange} inputProps={{ min: 0, step: '0.01' }} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth type="date" required label="Start Date" name="started_day" value={formData.started_day || ''} onChange={handleChange} InputLabelProps={{ shrink: true }} />
+              <TextField fullWidth type="date" required label={t('Start Date')} name="started_day" value={formData.started_day || ''} onChange={handleChange} InputLabelProps={{ shrink: true }} />
             </Grid>
             <Grid item xs={12}>
               <Button component="label" variant="outlined" size="small">
-                {formData.image_file?.name || 'Choose trainee photo'}
+                {formData.image_file?.name || t('Choose trainee photo')}
                 <input hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setFormData((current) => ({ ...current, image_file: event.target.files?.[0] || null }))} />
               </Button>
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select name="is_active" value={formData.is_active !== undefined ? formData.is_active : true} label="Status" onChange={handleChange}>
-                  <MenuItem value={true}>Active</MenuItem>
-                  <MenuItem value={false}>Inactive</MenuItem>
+                <InputLabel>{t('Status')}</InputLabel>
+                <Select name="is_active" value={formData.is_active !== undefined ? formData.is_active : true} label={t('Status')} onChange={handleChange}>
+                  <MenuItem value={true}>{t('Active')}</MenuItem>
+                  <MenuItem value={false}>{t('Inactive')}</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -223,40 +225,40 @@ export default function MemberDialog({ open, onClose, member = null, onSuccess }
             <Box sx={{ mt: 3 }}>
               <Grid container spacing={2} alignItems="center">
                 <Grid item xs={12}>
-                  <TextField select fullWidth label="Document type" value={documentType} onChange={(event) => setDocumentType(event.target.value)}>
+                  <TextField select fullWidth label={t('Document type')} value={documentType} onChange={(event) => setDocumentType(event.target.value)}>
                     {DOCUMENT_TYPES.map((type) => <MenuItem key={type} value={type}>{type}</MenuItem>)}
                   </TextField>
                 </Grid>
                 <Grid item xs={12} sm={7}>
                   <Button component="label" variant="outlined" size="small">
-                    {documentFile?.name || 'Choose document (max 5 MB)'}
+                    {documentFile?.name || t('Choose document (max 5 MB)')}
                     <input hidden type="file" onChange={(event) => setDocumentFile(event.target.files?.[0] || null)} />
                   </Button>
                 </Grid>
                 <Grid item xs={12} sm={5}>
                   <Button variant="contained" onClick={handleDocumentUpload} disabled={!documentFile || documentLoading}>
-                    {documentLoading ? 'Uploading...' : 'Upload document'}
+                    {documentLoading ? t('Uploading...') : t('Upload document')}
                   </Button>
                 </Grid>
                 <Grid item xs={12}>
                   {documents.map((document) => (
                     <Box key={document.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider', py: 0.5 }}>
                       <Button component="a" href={document.file} target="_blank" rel="noreferrer">{document.document_type}</Button>
-                      <Tooltip title="Delete document">
+                      <Tooltip title={t('Delete document')}>
                         <IconButton size="small" color="error" onClick={() => handleDocumentDelete(document)}><DeleteIcon fontSize="small" /></IconButton>
                       </Tooltip>
                     </Box>
                   ))}
-                  {!documents.length && <Box sx={{ color: 'text.secondary', typography: 'body2' }}>No documents uploaded.</Box>}
+                  {!documents.length && <Box sx={{ color: 'text.secondary', typography: 'body2' }}>{t('No documents uploaded.')}</Box>}
                 </Grid>
               </Grid>
             </Box>
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={onClose} disabled={loading}>Cancel</Button>
+          <Button onClick={onClose} disabled={loading}>{t('Cancel')}</Button>
           <Button type="submit" variant="contained" disabled={loading} startIcon={loading ? <CircularProgress size={20} /> : null}>
-            {member ? 'Save Changes' : 'Add Member'}
+            {member ? t('Save Changes') : t('Add Member')}
           </Button>
         </DialogActions>
       </form>

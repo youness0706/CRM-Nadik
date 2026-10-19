@@ -9,13 +9,11 @@ import AddIcon from '@mui/icons-material/Add';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import BusinessIcon from '@mui/icons-material/Business';
 import PeopleIcon from '@mui/icons-material/People';
-import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import apiClient from '../services/api';
 import { getApiErrorMessage } from '../services/errors';
 import { useLanguage } from '../state/LanguageContext';
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const today = new Date().toISOString().slice(0, 10);
 const EMPTY_EXPENSE = { title: '', description: '', amount: '', date: today };
 
@@ -33,7 +31,7 @@ function Metric({ title, value, icon, accent }) {
   );
 }
 
-function MonthlyChart({ rows }) {
+function MonthlyChart({ rows, language }) {
   const peak = Math.max(1, ...rows.flatMap((row) => [row.income, row.expenses]));
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(12, minmax(34px, 1fr))', gap: 1, alignItems: 'end', overflowX: 'auto', pb: 1 }}>
@@ -43,7 +41,7 @@ function MonthlyChart({ rows }) {
             <Box title={`Income: ${row.income.toFixed(2)} MAD`} sx={{ width: 10, height: `${Math.max(2, row.income / peak * 138)}px`, bgcolor: 'success.main', borderRadius: '3px 3px 0 0' }} />
             <Box title={`Expenses: ${row.expenses.toFixed(2)} MAD`} sx={{ width: 10, height: `${Math.max(2, row.expenses / peak * 138)}px`, bgcolor: 'warning.main', borderRadius: '3px 3px 0 0' }} />
           </Box>
-          <Typography variant="caption" color="text.secondary">{MONTHS[row.month - 1]}</Typography>
+          <Typography variant="caption" color="text.secondary">{new Date(2026, row.month - 1, 1).toLocaleDateString(language === 'ar' ? 'ar' : 'fr-FR', { month: 'short' })}</Typography>
         </Box>
       ))}
     </Box>
@@ -51,7 +49,7 @@ function MonthlyChart({ rows }) {
 }
 
 export default function PlatformDashboard() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [year, setYear] = useState(new Date().getFullYear());
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -116,15 +114,15 @@ export default function PlatformDashboard() {
       {loading ? <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box> : report && (
         <>
           <Grid container spacing={2} sx={{ mb: 4 }}>
-            <Grid item xs={12} sm={6} lg={3}><Metric title="Organizations" value={`${metrics.organization_count} (${metrics.active_organizations} active)`} icon={<BusinessIcon />} accent="primary.main" /></Grid>
-            <Grid item xs={12} sm={6} lg={3}><Metric title="People across organizations" value={`${metrics.trainee_count} trainees · ${metrics.staff_count} staff`} icon={<PeopleIcon />} accent="info.main" /></Grid>
-            <Grid item xs={12} sm={6} lg={3}><Metric title={`${year} subscription income`} value={`${metrics.subscription_income.toFixed(2)} MAD`} icon={<TrendingUpIcon />} accent="success.main" /></Grid>
-            <Grid item xs={12} sm={6} lg={3}><Metric title="Platform net" value={`${metrics.net_income.toFixed(2)} MAD`} icon={<AccountBalanceIcon />} accent={metrics.net_income >= 0 ? 'success.main' : 'error.main'} /></Grid>
+            <Grid item xs={12} sm={6} lg={3}><Metric title={t('Organizations')} value={`${metrics.organization_count} (${metrics.active_organizations} ${t('active')})`} icon={<BusinessIcon />} accent="primary.main" /></Grid>
+            <Grid item xs={12} sm={6} lg={3}><Metric title={t('People across organizations')} value={`${metrics.trainee_count} ${t('trainees')} · ${metrics.staff_count} ${t('staff')}`} icon={<PeopleIcon />} accent="info.main" /></Grid>
+            <Grid item xs={12} sm={6} lg={3}><Metric title={`${year} ${t('subscription income')}`} value={`${metrics.subscription_income.toFixed(2)} MAD`} icon={<TrendingUpIcon />} accent="success.main" /></Grid>
+            <Grid item xs={12} sm={6} lg={3}><Metric title={t('Platform net')} value={`${metrics.net_income.toFixed(2)} MAD`} icon={<AccountBalanceIcon />} accent={metrics.net_income >= 0 ? 'success.main' : 'error.main'} /></Grid>
           </Grid>
 
           <Box component="section" sx={{ mb: 4 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
-              <Typography variant="h6" fontWeight={700}>Platform finance · {year}</Typography>
+              <Typography variant="h6" fontWeight={700}>{t('Platform finance')} · {year}</Typography>
               <Typography variant="body2" color="text.secondary">{t('Income')} <b>{metrics.subscription_income.toFixed(2)} MAD</b> · {t('Costs')} <b>{metrics.platform_expenses.toFixed(2)} MAD</b> · {t('Net Profit')} <b>{metrics.net_income.toFixed(2)} MAD</b></Typography>
             </Box>
             <Paper sx={{ p: 2.5, borderRadius: 1 }}>
@@ -132,7 +130,7 @@ export default function PlatformDashboard() {
                 <Typography variant="caption"><Box component="span" sx={{ color: 'success.main' }}>■</Box> {t('Subscription income')}</Typography>
                 <Typography variant="caption"><Box component="span" sx={{ color: 'warning.main' }}>■</Box> {t('Platform costs')}</Typography>
               </Box>
-              <MonthlyChart rows={report.monthly} />
+              <MonthlyChart rows={report.monthly} language={language} />
             </Paper>
           </Box>
 
@@ -145,11 +143,11 @@ export default function PlatformDashboard() {
                   {report.organizations.map((organization) => (
                     <TableRow key={organization.id} hover>
                       <TableCell><Typography fontWeight={600}>{organization.name}</Typography><Typography variant="caption" color="text.secondary">{organization.slug}</Typography></TableCell>
-                      <TableCell>{organization.subscription_tier} · {organization.is_active ? organization.subscription_status : 'Suspended'}</TableCell>
+                      <TableCell>{t(organization.subscription_tier)} · {t(organization.is_active ? organization.subscription_status : 'Suspended')}</TableCell>
                       <TableCell align="right">{organization.active_trainees} / {organization.total_trainees}</TableCell>
                       <TableCell align="right">{organization.staff_count}</TableCell>
                       <TableCell align="right">{organization.subscription_income.toFixed(2)} MAD</TableCell>
-                      <TableCell>{organization.subscription_end || 'Not set'}</TableCell>
+                      <TableCell>{organization.subscription_end || t('Not set')}</TableCell>
                     </TableRow>
                   ))}
                   {!report.organizations.length && <TableRow><TableCell colSpan={6} align="center">{t('No organizations yet.')}</TableCell></TableRow>}
@@ -161,7 +159,7 @@ export default function PlatformDashboard() {
           <Box component="section">
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
               <Typography variant="h6" fontWeight={700}>{t('Platform costs')}</Typography>
-              <Typography variant="body2" color="text.secondary">{metrics.platform_expenses.toFixed(2)} MAD this year</Typography>
+              <Typography variant="body2" color="text.secondary">{metrics.platform_expenses.toFixed(2)} MAD · {t('this year')}</Typography>
             </Box>
             <TableContainer component={Paper} sx={{ border: '1px solid', borderColor: 'divider', boxShadow: 'none', borderRadius: 1 }}>
               <Table size="small">

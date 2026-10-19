@@ -6,11 +6,12 @@ import {
 } from '@mui/material';
 import apiClient from '../services/api';
 import { getApiErrorMessage } from '../services/errors';
+import { useLanguage } from '../state/LanguageContext';
 
 const PAYMENT_TYPES = [
-  { value: 'month', label: 'Monthly (Month)' },
+  { value: 'month', label: 'Monthly' },
   { value: 'subscription', label: 'Subscription' },
-  { value: 'assurance', label: 'Insurance (Assurance)' },
+  { value: 'assurance', label: 'Insurance' },
   { value: 'jawaz', label: 'Jawaz' },
 ];
 
@@ -22,6 +23,7 @@ const DEFAULT_PAYMENT = {
 };
 
 export default function PaymentDialog({ open, onClose, payment = null, onSuccess }) {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState(DEFAULT_PAYMENT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -89,7 +91,7 @@ export default function PaymentDialog({ open, onClose, payment = null, onSuccess
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <form onSubmit={handleSubmit}>
-        <DialogTitle>{payment ? 'Edit Payment' : 'Record Payment'}</DialogTitle>
+        <DialogTitle>{payment ? t('Edit Payment') : t('Record Payment')}</DialogTitle>
         <DialogContent dividers>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           {membersError && <Alert severity="error" sx={{ mb: 2 }}>{membersError}</Alert>}
@@ -105,30 +107,30 @@ export default function PaymentDialog({ open, onClose, payment = null, onSuccess
                 }}
                 defaultValue={payment ? { id: payment.trainer, first_name: payment.trainer_name, last_name: payment.trainer_surname } : null}
                 renderInput={(params) => (
-                  <TextField {...params} label="Select Member" required variant="outlined" />
+                  <TextField {...params} label={t('Select Member')} required variant="outlined" />
                 )}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth required>
-                <InputLabel>Payment Type</InputLabel>
-                <Select name="paymentCategry" value={formData.paymentCategry} label="Payment Type" onChange={handleChange}>
-                  {PAYMENT_TYPES.map(t => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
+                <InputLabel>{t('Payment Type')}</InputLabel>
+                <Select name="paymentCategry" value={formData.paymentCategry} label={t('Payment Type')} onChange={handleChange}>
+                  {PAYMENT_TYPES.map(item => <MenuItem key={item.value} value={item.value}>{t(item.label)}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth type="date" required label="Date" name="paymentdate" value={formData.paymentdate} onChange={handleChange} InputLabelProps={{ shrink: true }} />
+              <TextField fullWidth type="date" required label={t('Date')} name="paymentdate" value={formData.paymentdate} onChange={handleChange} InputLabelProps={{ shrink: true }} />
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth type="number" required label="Amount (MAD)" name="paymentAmount" value={formData.paymentAmount} onChange={handleChange} inputProps={{ step: "0.01", min: "0" }} />
+              <TextField fullWidth type="number" required label={t('Amount (MAD)')} name="paymentAmount" value={formData.paymentAmount} onChange={handleChange} inputProps={{ step: "0.01", min: "0" }} />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={onClose} disabled={loading}>Cancel</Button>
+          <Button onClick={onClose} disabled={loading}>{t('Cancel')}</Button>
           <Button type="submit" variant="contained" disabled={loading} startIcon={loading ? <CircularProgress size={20} /> : null}>
-            {payment ? 'Save Changes' : 'Record Payment'}
+            {payment ? t('Save Changes') : t('Record Payment')}
           </Button>
         </DialogActions>
       </form>

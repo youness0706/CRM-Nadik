@@ -96,10 +96,10 @@ export default function Dashboard() {
       {daysUntilExpiration <= 7 && (
         <Alert severity="warning" sx={{ mb: 4, borderRadius: 2 }}>
           {daysUntilExpiration < 0
-            ? `Your subscription expired ${Math.abs(daysUntilExpiration)} days ago.`
+            ? `${t('Your subscription expired')} ${Math.abs(daysUntilExpiration)} ${t('days ago.')}`
             : daysUntilExpiration === 0
-              ? 'Your subscription expires today.'
-              : `Your subscription expires in ${daysUntilExpiration} days.`}
+              ? t('Your subscription expires today.')
+              : `${t('Your subscription expires in')} ${daysUntilExpiration} ${t('days.')}`}
         </Alert>
       )}
 

@@ -46,17 +46,17 @@ export default function StaffList() {
     if (window.confirm(`Are you sure you want to delete staff member ${s.username}?`)) {
       try {
         await apiClient.delete(`/crm/staff/${s.id}/`);
-        setToast({ open: true, message: 'Staff deleted successfully.', severity: 'success' });
+        setToast({ open: true, message: t('Staff deleted successfully.'), severity: 'success' });
         refresh();
       } catch (err) {
-        setToast({ open: true, message: err.response?.data?.detail || 'Failed to delete staff.', severity: 'error' });
+        setToast({ open: true, message: err.response?.data?.detail || t('Failed to delete staff.'), severity: 'error' });
       }
     }
   };
 
   const handleDialogSuccess = () => {
     setDialogOpen(false);
-    setToast({ open: true, message: selectedStaff ? 'Staff updated successfully.' : 'Staff added successfully.', severity: 'success' });
+    setToast({ open: true, message: selectedStaff ? t('Staff updated successfully.') : t('Staff added successfully.'), severity: 'success' });
     refresh();
   };
 

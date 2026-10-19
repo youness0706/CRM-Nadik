@@ -12,8 +12,10 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import usePagination from '../hooks/usePagination';
 import EventDialog from '../components/EventDialog';
 import apiClient from '../services/api';
+import { useLanguage } from '../state/LanguageContext';
 
 export default function ArticleList() {
+  const { t } = useLanguage();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
@@ -44,25 +46,25 @@ export default function ArticleList() {
     if (window.confirm(`Are you sure you want to delete the event "${event.title}"?`)) {
       try {
         await apiClient.delete(`/crm/articles/${event.id}/`);
-        setToast({ open: true, message: 'Event deleted successfully.', severity: 'success' });
+        setToast({ open: true, message: t('Event deleted successfully.'), severity: 'success' });
         refresh();
       } catch (err) {
-        setToast({ open: true, message: 'Failed to delete event.', severity: 'error' });
+        setToast({ open: true, message: t('Failed to delete event.'), severity: 'error' });
       }
     }
   };
 
   const handleDialogSuccess = () => {
     setDialogOpen(false);
-    setToast({ open: true, message: selectedEvent ? 'Event updated successfully.' : 'Event added successfully.', severity: 'success' });
+    setToast({ open: true, message: selectedEvent ? t('Event updated successfully.') : t('Event added successfully.'), severity: 'success' });
     refresh();
   };
 
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold">Events & Articles</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} size="large" onClick={handleAddClick}>Add Event</Button>
+        <Typography variant="h4" fontWeight="bold">{t('Events & Articles')}</Typography>
+        <Button variant="contained" startIcon={<AddIcon />} size="large" onClick={handleAddClick}>{t('Add Event')}</Button>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -89,23 +91,23 @@ export default function ArticleList() {
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
                     <PeopleIcon fontSize="small" />
-                    <Typography variant="body2">{a.trainees_count} participants</Typography>
+                    <Typography variant="body2">{a.trainees_count} {t('participants')}</Typography>
                   </Box>
                 </CardContent>
                 <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
                   <Box>
-                    <Typography variant="caption" color="text.secondary">Cost: </Typography>
+                    <Typography variant="caption" color="text.secondary">{t('Cost')}: </Typography>
                     <Typography variant="caption" fontWeight="bold" color="error.main">{parseFloat(a.costs || 0).toFixed(0)} DH</Typography>
-                    <Typography variant="caption" color="text.secondary"> · Net: </Typography>
+                    <Typography variant="caption" color="text.secondary"> · {t('Net')}: </Typography>
                     <Typography variant="caption" fontWeight="bold" color={a.net_profit >= 0 ? 'success.main' : 'error.main'}>
                       {parseFloat(a.net_profit || 0).toFixed(0)} DH
                     </Typography>
                   </Box>
                   <Box>
-                    <Tooltip title="Edit Event">
+                    <Tooltip title={t('Edit Event')}>
                       <IconButton size="small" color="primary" onClick={() => handleEditClick(a)}><EditIcon fontSize="small" /></IconButton>
                     </Tooltip>
-                    <Tooltip title="Delete Event">
+                    <Tooltip title={t('Delete Event')}>
                       <IconButton size="small" color="error" onClick={() => handleDeleteClick(a)}><DeleteIcon fontSize="small" /></IconButton>
                     </Tooltip>
                   </Box>
@@ -116,7 +118,7 @@ export default function ArticleList() {
           {articles.length === 0 && (
             <Grid item xs={12}>
               <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-                <Typography color="text.secondary">No events found.</Typography>
+                <Typography color="text.secondary">{t('No events found.')}</Typography>
               </Paper>
             </Grid>
           )}

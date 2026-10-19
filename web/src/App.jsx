@@ -15,6 +15,7 @@ import ExpenseList from './screens/ExpenseList';
 import FinancialStatus from './screens/FinancialStatus';
 import Settings from './screens/Settings';
 import PlatformOrganizations from './screens/PlatformOrganizations';
+import PlatformPayments from './screens/PlatformPayments';
 import Layout from './components/Layout';
 import apiClient from './services/api';
 import { LanguageProvider } from './state/LanguageContext';
@@ -52,14 +53,14 @@ const theme = createTheme({
     },
   },
   typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+    fontFamily: '"DM Sans", "Noto Sans Arabic", sans-serif',
     h4: {
       fontWeight: 700,
-      letterSpacing: '-0.02em',
+      letterSpacing: 0,
     },
     h5: {
       fontWeight: 600,
-      letterSpacing: '-0.01em',
+      letterSpacing: 0,
     },
     button: {
       fontWeight: 600,
@@ -149,6 +150,7 @@ function App() {
           <Route path="/financial" element={<ProtectedRoute><FinancialStatus /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/platform/organizations" element={<ProtectedRoute><PlatformOrganizations /></ProtectedRoute>} />
+          <Route path="/platform/payments" element={<ProtectedRoute><PlatformPayments /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Router>

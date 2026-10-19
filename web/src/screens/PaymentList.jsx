@@ -11,6 +11,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import usePagination from '../hooks/usePagination';
 import PaymentDialog from '../components/PaymentDialog';
 import apiClient from '../services/api';
+import { useLanguage } from '../state/LanguageContext';
 
 const PAYMENT_TYPES = [
   { value: 'all', label: 'All Types' },
@@ -21,6 +22,7 @@ const PAYMENT_TYPES = [
 ];
 
 export default function PaymentList() {
+  const { t } = useLanguage();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
@@ -73,40 +75,40 @@ export default function PaymentList() {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold">Payments</Typography>
+        <Typography variant="h4" fontWeight="bold">{t('Payments')}</Typography>
         <Button variant="contained" startIcon={<AddIcon />} size="large" onClick={handleAddClick}>
-          Record Payment
+          {t('Record Payment')}
         </Button>
       </Box>
 
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', borderRadius: 2 }}>
         <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel>Type</InputLabel>
+          <InputLabel>{t('Type')}</InputLabel>
           <Select 
             value={filters.paymentCategry || 'all'} 
-            label="Type" 
+            label={t('Type')}
             onChange={(e) => applyFilter('paymentCategry', e.target.value)}
           >
-            {PAYMENT_TYPES.map(t => (
-              <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
+            {PAYMENT_TYPES.map((item) => (
+              <MenuItem key={item.value} value={item.value}>{t(item.label)}</MenuItem>
             ))}
           </Select>
         </FormControl>
         <TextField
-          size="small" type="date" label="From" 
+          size="small" type="date" label={t('From')} 
           value={filters.start_date || ''}
           onChange={(e) => applyFilter('start_date', e.target.value)}
           InputLabelProps={{ shrink: true }}
         />
         <TextField
-          size="small" type="date" label="To" 
+          size="small" type="date" label={t('To')} 
           value={filters.end_date || ''}
           onChange={(e) => applyFilter('end_date', e.target.value)}
           InputLabelProps={{ shrink: true }}
         />
         <Chip
-          label={`Page Total: ${pageTotal.toFixed(2)} MAD`}
+          label={`${t('Page Total:')} ${pageTotal.toFixed(2)} MAD`}
           color="success"
           variant="outlined"
           sx={{ ml: 'auto' }}
@@ -119,11 +121,11 @@ export default function PaymentList() {
         <Table>
           <TableHead>
             <TableRow sx={{ backgroundColor: 'background.default' }}>
-              <TableCell sx={{ fontWeight: 'bold' }}>Member</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Date</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Amount (MAD)</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', textAlign: 'right' }}>Actions</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Member')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Date')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Type')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Amount (MAD)')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', textAlign: 'right' }}>{t('Actions')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -136,7 +138,7 @@ export default function PaymentList() {
             ) : payments.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
-                  <Typography color="text.secondary">No payments found.</Typography>
+                  <Typography color="text.secondary">{t('No payments found.')}</Typography>
                 </TableCell>
               </TableRow>
             ) : (
@@ -151,12 +153,12 @@ export default function PaymentList() {
                     {parseFloat(p.paymentAmount).toFixed(2)} DH
                   </TableCell>
                   <TableCell align="right">
-                    <Tooltip title="Edit Payment">
+                    <Tooltip title={t('Edit Payment')}>
                       <IconButton size="small" color="primary" onClick={() => handleEditClick(p)}>
                         <EditIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Delete Payment">
+                    <Tooltip title={t('Delete Payment')}>
                       <IconButton size="small" color="error" onClick={() => handleDeleteClick(p)}>
                         <DeleteIcon fontSize="small" />
                       </IconButton>

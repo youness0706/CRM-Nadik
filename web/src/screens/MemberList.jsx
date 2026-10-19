@@ -64,17 +64,17 @@ export default function MemberList() {
     if (window.confirm(`Are you sure you want to delete ${member.first_name} ${member.last_name}?`)) {
       try {
         await apiClient.delete(`/crm/members/${member.id}/`);
-        setToast({ open: true, message: 'Member deleted successfully.', severity: 'success' });
+        setToast({ open: true, message: t('Member deleted successfully.'), severity: 'success' });
         refresh();
       } catch (err) {
-        setToast({ open: true, message: 'Failed to delete member.', severity: 'error' });
+        setToast({ open: true, message: t('Failed to delete member.'), severity: 'error' });
       }
     }
   };
 
   const handleDialogSuccess = () => {
     setDialogOpen(false);
-    setToast({ open: true, message: selectedMember ? 'Member updated successfully.' : 'Member added successfully.', severity: 'success' });
+    setToast({ open: true, message: selectedMember ? t('Member updated successfully.') : t('Member added successfully.'), severity: 'success' });
     refresh();
   };
 

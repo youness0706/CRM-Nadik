@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Container, Box, Typography, TextField, Button, Alert, Paper } from '@mui/material';
+import { Container, Box, Typography, TextField, Button, Alert, Paper, FormControl, MenuItem, Select } from '@mui/material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import apiClient from '../services/api';
+import { useLanguage } from '../state/LanguageContext';
 
 function formatErrorMessage(value) {
   if (typeof value === 'string') return value;
@@ -13,6 +14,7 @@ function formatErrorMessage(value) {
 }
 
 export default function Login() {
+  const { language, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -36,7 +38,7 @@ export default function Login() {
       if (access && refresh) {
         localStorage.setItem('access_token', access);
         localStorage.setItem('refresh_token', refresh);
-        navigate(response.data.user?.is_platform_admin ? '/platform/organizations' : '/dashboard');
+        navigate('/dashboard');
       } else {
         setError('Login failed: Invalid response format.');
       }
@@ -57,6 +59,11 @@ export default function Login() {
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'background.default' }}>
+      <FormControl size="small" sx={{ position: 'absolute', top: 16, right: 16, minWidth: 118 }}>
+        <Select value={language} onChange={(event) => setLanguage(event.target.value)} inputProps={{ 'aria-label': t('Language') }}>
+          <MenuItem value="fr">Français</MenuItem><MenuItem value="ar">العربية</MenuItem>
+        </Select>
+      </FormControl>
       <Container maxWidth="sm">
         <Paper elevation={0} sx={{ p: 4, width: '100%', borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
           <Box sx={{ mb: 4, textAlign: 'center' }}>
@@ -64,7 +71,7 @@ export default function Login() {
               Nadik
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Sports Association Management Platform
+              {t('Sports Association Management Platform')}
             </Typography>
           </Box>
           
@@ -76,7 +83,7 @@ export default function Login() {
               required
               fullWidth
               id="identifier"
-              label="Email or Username"
+              label={t('Email or Username')}
               name="identifier"
               autoComplete="email"
               autoFocus
@@ -89,7 +96,7 @@ export default function Login() {
               required
               fullWidth
               name="password"
-              label="Password"
+              label={t('Password')}
               type="password"
               id="password"
               autoComplete="current-password"
@@ -105,10 +112,10 @@ export default function Login() {
               sx={{ mt: 3, py: 1.5 }}
               disabled={isLoading}
             >
-              {isLoading ? 'Signing In...' : 'Sign In'}
+              {isLoading ? t('Signing In...') : t('Sign In')}
             </Button>
             <Button component={RouterLink} to="/register" fullWidth sx={{ mt: 1 }}>
-              Create an organization
+              {t('Create an organization')}
             </Button>
           </Box>
         </Paper>

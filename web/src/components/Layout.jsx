@@ -57,8 +57,8 @@ export default function Layout({ children }) {
     }
   };
 
-  const menuItems = [
-    { text: profile?.is_platform_admin ? 'Platform Dashboard' : 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+  const organizationMenuItems = [
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Members', icon: <PeopleIcon />, path: '/members' },
     { text: 'Payments', icon: <PaymentIcon />, path: '/payments' },
     { text: 'Unpaid', icon: <WarningIcon />, path: '/unpaid' },
@@ -66,9 +66,15 @@ export default function Layout({ children }) {
     { text: 'Expenses', icon: <ReceiptLongIcon />, path: '/expenses' },
     { text: 'Events', icon: <EventIcon />, path: '/events' },
     { text: 'Staff', icon: <GroupIcon />, path: '/staff' },
-    ...(profile?.is_platform_admin ? [{ text: 'Organizations', icon: <BusinessIcon />, path: '/platform/organizations' }] : []),
     { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
   ];
+  const platformMenuItems = [
+    { text: 'Platform Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+    { text: 'Organizations', icon: <BusinessIcon />, path: '/platform/organizations' },
+    { text: 'Organization Payments', icon: <ReceiptLongIcon />, path: '/platform/payments' },
+    { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
+  ];
+  const menuItems = profile?.is_platform_admin ? platformMenuItems : organizationMenuItems;
 
   const drawer = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>

@@ -6,8 +6,10 @@ import {
 import WarningIcon from '@mui/icons-material/Warning';
 import apiClient from '../services/api';
 import { getApiErrorMessage } from '../services/errors';
+import { useLanguage } from '../state/LanguageContext';
 
 export default function UnpaidList() {
+  const { language, t } = useLanguage();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1); // 1-12
@@ -35,34 +37,32 @@ export default function UnpaidList() {
 
   const years = Array.from({ length: 5 }, (_, i) => today.getFullYear() - i);
   const months = [
-    { value: 1, label: 'January' }, { value: 2, label: 'February' },
-    { value: 3, label: 'March' }, { value: 4, label: 'April' },
-    { value: 5, label: 'May' }, { value: 6, label: 'June' },
-    { value: 7, label: 'July' }, { value: 8, label: 'August' },
-    { value: 9, label: 'September' }, { value: 10, label: 'October' },
-    { value: 11, label: 'November' }, { value: 12, label: 'December' }
+    ...Array.from({ length: 12 }, (_, index) => ({
+      value: index + 1,
+      label: new Date(2000, index, 1).toLocaleDateString(language === 'ar' ? 'ar' : 'fr-FR', { month: 'long' }),
+    }))
   ];
 
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold">Unpaid Members</Typography>
+        <Typography variant="h4" fontWeight="bold">{t('Unpaid Members')}</Typography>
       </Box>
 
       <Paper sx={{ p: 2, mb: 3, display: 'flex', gap: 2, alignItems: 'center', borderRadius: 2 }}>
         <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel>Year</InputLabel>
+          <InputLabel>{t('Year')}</InputLabel>
           <Select value={year} label="Year" onChange={(e) => setYear(e.target.value)}>
             {years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
           </Select>
         </FormControl>
         <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel>Month</InputLabel>
+          <InputLabel>{t('Month')}</InputLabel>
           <Select value={month} label="Month" onChange={(e) => setMonth(e.target.value)}>
             {months.map(m => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
           </Select>
         </FormControl>
-        <Chip icon={<WarningIcon />} label={`${data.count} unpaid members`} color="warning" sx={{ ml: 'auto' }} />
+        <Chip icon={<WarningIcon />} label={`${data.count} ${t('unpaid members')}`} color="warning" sx={{ ml: 'auto' }} />
       </Paper>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -71,17 +71,17 @@ export default function UnpaidList() {
         <Table>
           <TableHead>
             <TableRow sx={{ backgroundColor: 'warning.light' }}>
-              <TableCell sx={{ fontWeight: 'bold' }}>Name</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Phone</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Category</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', textAlign: 'right' }}>Actions</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Name')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Phone')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>{t('Category')}</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', textAlign: 'right' }}>{t('Actions')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow><TableCell colSpan={4} align="center" sx={{ py: 6 }}><CircularProgress /></TableCell></TableRow>
             ) : data.unpaid.length === 0 ? (
-              <TableRow><TableCell colSpan={4} align="center" sx={{ py: 6 }}><Typography color="text.secondary">All members have paid for this month!</Typography></TableCell></TableRow>
+              <TableRow><TableCell colSpan={4} align="center" sx={{ py: 6 }}><Typography color="text.secondary">{t('All members have paid for this month!')}</Typography></TableCell></TableRow>
             ) : (
               data.unpaid.map((m) => (
                 <TableRow key={m.id} hover>
@@ -91,7 +91,7 @@ export default function UnpaidList() {
                   <TableCell align="right">
                     {m.phone && (
                       <a href={`https://wa.me/${m.phone}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-                        <Chip label="WhatsApp" color="success" size="small" clickable />
+                        <Chip label={t('WhatsApp')} color="success" size="small" clickable />
                       </a>
                     )}
                   </TableCell>

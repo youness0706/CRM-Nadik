@@ -11,7 +11,7 @@ import { getApiErrorMessage } from '../services/errors';
 import { useLanguage } from '../state/LanguageContext';
 
 export default function FinancialStatus() {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -36,6 +36,7 @@ export default function FinancialStatus() {
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+  const monthlyPeak = Math.max(1, ...(data?.monthly_breakdown || []).flatMap((item) => [item.income, item.expenses]));
 
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><CircularProgress /></Box>;
@@ -118,6 +119,24 @@ export default function FinancialStatus() {
           </Card>
         </Grid>
       </Grid>
+
+      <Paper sx={{ p: 3, mb: 3, borderRadius: 1, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+        <Typography variant="h6" gutterBottom fontWeight={600}>{t('Monthly cash flow')}</Typography>
+        <Typography variant="caption" color="text.secondary">{t('Income before payroll and rent')}</Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(12, minmax(42px, 1fr))', gap: 1, overflowX: 'auto', pt: 2 }}>
+          {data?.monthly_breakdown?.map((month) => {
+            return (
+              <Box key={month.month} sx={{ minWidth: 42, textAlign: 'center' }}>
+                <Box sx={{ height: 126, display: 'flex', justifyContent: 'center', alignItems: 'end', gap: 0.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                  <Box title={`${t('Income')} ${month.income.toFixed(2)} DH`} sx={{ width: 11, height: `${Math.max(2, month.income / monthlyPeak * 116)}px`, bgcolor: 'success.main', borderRadius: '3px 3px 0 0' }} />
+                  <Box title={`${t('Expenses')} ${month.expenses.toFixed(2)} DH`} sx={{ width: 11, height: `${Math.max(2, month.expenses / monthlyPeak * 116)}px`, bgcolor: 'warning.main', borderRadius: '3px 3px 0 0' }} />
+                </Box>
+                <Typography variant="caption" color="text.secondary">{new Date(2000, month.month - 1, 1).toLocaleDateString(language === 'ar' ? 'ar' : 'fr-FR', { month: 'short' })}</Typography>
+              </Box>
+            );
+          })}
+        </Box>
+      </Paper>
 
       {/* Monthly Breakdown Table */}
       <Paper sx={{ p: 3, borderRadius: 2, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>

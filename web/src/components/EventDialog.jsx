@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import apiClient from '../services/api';
 import { getApiErrorMessage } from '../services/errors';
+import { useLanguage } from '../state/LanguageContext';
 
 const DEFAULT_EVENT = {
   title: '', date: new Date().toISOString().split('T')[0], location: 'Club',
@@ -21,6 +22,7 @@ const EVENT_AREAS = [
 ];
 
 export default function EventDialog({ open, onClose, event = null, onSuccess }) {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState(DEFAULT_EVENT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -69,37 +71,37 @@ export default function EventDialog({ open, onClose, event = null, onSuccess }) 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <form onSubmit={handleSubmit}>
-        <DialogTitle>{event ? 'Edit Event' : 'Add Event'}</DialogTitle>
+        <DialogTitle>{event ? t('Edit Event') : t('Add Event')}</DialogTitle>
         <DialogContent dividers>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           <Grid container spacing={2}>
             <Grid item xs={12}>
-              <TextField fullWidth required label="Title" name="title" value={formData.title} onChange={handleChange} />
+              <TextField fullWidth required label={t('Title')} name="title" value={formData.title} onChange={handleChange} />
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth required label="Description/Content" name="content" value={formData.content} onChange={handleChange} multiline rows={3} />
+              <TextField fullWidth required label={t('Description/Content')} name="content" value={formData.content} onChange={handleChange} multiline rows={3} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth type="date" required label="Date" name="date" value={formData.date} onChange={handleChange} InputLabelProps={{ shrink: true }} />
+              <TextField fullWidth type="date" required label={t('Date')} name="date" value={formData.date} onChange={handleChange} InputLabelProps={{ shrink: true }} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth required label="Location" name="location" value={formData.location} onChange={handleChange} />
+              <TextField fullWidth required label={t('Location')} name="location" value={formData.location} onChange={handleChange} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField select fullWidth required label="Category" name="category" value={formData.category} onChange={handleChange}>
-                {EVENT_CATEGORIES.map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}
+              <TextField select fullWidth required label={t('Category')} name="category" value={formData.category} onChange={handleChange}>
+                {EVENT_CATEGORIES.map(([value, label]) => <MenuItem key={value} value={value}>{t(label)}</MenuItem>)}
               </TextField>
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField select fullWidth required label="Area" name="area" value={formData.area} onChange={handleChange}>
-                {EVENT_AREAS.map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}
+              <TextField select fullWidth required label={t('Area')} name="area" value={formData.area} onChange={handleChange}>
+                {EVENT_AREAS.map(([value, label]) => <MenuItem key={value} value={value}>{t(label)}</MenuItem>)}
               </TextField>
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth required type="number" label="Event Costs (MAD)" name="costs" value={formData.costs} onChange={handleChange} inputProps={{ step: "0.01", min: "0" }} />
+              <TextField fullWidth required type="number" label={t('Event Costs (MAD)')} name="costs" value={formData.costs} onChange={handleChange} inputProps={{ step: "0.01", min: "0" }} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth required type="number" label="Participation Price (MAD)" name="participetion_price" value={formData.participetion_price} onChange={handleChange} inputProps={{ step: "0.01", min: "0" }} />
+              <TextField fullWidth required type="number" label={t('Participation Price (MAD)')} name="participetion_price" value={formData.participetion_price} onChange={handleChange} inputProps={{ step: "0.01", min: "0" }} />
             </Grid>
             <Grid item xs={12}>
               <Autocomplete
@@ -110,15 +112,15 @@ export default function EventDialog({ open, onClose, event = null, onSuccess }) 
                 isOptionEqualToValue={(option, value) => option.id === value.id}
                 onInputChange={(event, value, reason) => reason === 'input' && fetchMembers(value)}
                 onChange={(event, selectedMembers) => setFormData((current) => ({ ...current, trainees: selectedMembers.map((member) => member.id) }))}
-                renderInput={(params) => <TextField {...params} label="Participants" placeholder="Search trainees" />}
+                renderInput={(params) => <TextField {...params} label={t('Participants')} placeholder={t('Search trainees')} />}
               />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={onClose} disabled={loading}>Cancel</Button>
+          <Button onClick={onClose} disabled={loading}>{t('Cancel')}</Button>
           <Button type="submit" variant="contained" disabled={loading} startIcon={loading ? <CircularProgress size={20} /> : null}>
-            {event ? 'Save Changes' : 'Add Event'}
+            {event ? t('Save Changes') : t('Add Event')}
           </Button>
         </DialogActions>
       </form>

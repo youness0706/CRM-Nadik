@@ -10,8 +10,10 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import usePagination from '../hooks/usePagination';
 import { ExpenseDialog, AddedPaymentDialog } from '../components/FinanceDialogs';
 import apiClient from '../services/api';
+import { useLanguage } from '../state/LanguageContext';
 
 export default function ExpenseList() {
+  const { t } = useLanguage();
   const [tab, setTab] = useState(0);
 
   // Dialog States
@@ -36,12 +38,12 @@ export default function ExpenseList() {
   const handleAddExpense = () => { setSelectedExpense(null); setExpenseDialogOpen(true); };
   const handleEditExpense = (item) => { setSelectedExpense(item); setExpenseDialogOpen(true); };
   const handleDeleteExpense = async (item) => {
-    if (window.confirm(`Delete expense "${item.cost}"?`)) {
+    if (window.confirm(`${t('Delete expense')} "${item.cost}"?`)) {
       try {
         await apiClient.delete(`/crm/expenses/${item.id}/`);
-        setToast({ open: true, message: 'Expense deleted.', severity: 'success' });
+        setToast({ open: true, message: t('Expense deleted.'), severity: 'success' });
         expenses.refresh();
-      } catch (err) { setToast({ open: true, message: 'Failed to delete.', severity: 'error' }); }
+      } catch (err) { setToast({ open: true, message: t('Failed to delete.'), severity: 'error' }); }
     }
   };
 
@@ -52,9 +54,9 @@ export default function ExpenseList() {
     if (window.confirm(`Delete payment "${item.title}"?`)) {
       try {
         await apiClient.delete(`/crm/added-payments/${item.id}/`);
-        setToast({ open: true, message: 'Payment deleted.', severity: 'success' });
+        setToast({ open: true, message: t('Payment deleted.'), severity: 'success' });
         addedPayments.refresh();
-      } catch (err) { setToast({ open: true, message: 'Failed to delete.', severity: 'error' }); }
+      } catch (err) { setToast({ open: true, message: t('Failed to delete.'), severity: 'error' }); }
     }
   };
 
@@ -62,7 +64,7 @@ export default function ExpenseList() {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" fontWeight="bold">
-          {tab === 0 ? 'Expenses' : 'Additional Payments'}
+          {tab === 0 ? t('Expenses') : t('Additional Payments')}
         </Typography>
         <Button 
           variant="contained" 
@@ -70,14 +72,14 @@ export default function ExpenseList() {
           size="large"
           onClick={tab === 0 ? handleAddExpense : handleAddAdded}
         >
-          {tab === 0 ? 'Add Expense' : 'Add Payment'}
+          {tab === 0 ? t('Add Expense') : t('Add Payment')}
         </Button>
       </Box>
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={tab} onChange={(e, v) => setTab(v)}>
-          <Tab label={`Expenses (${expenses.totalCount})`} />
-          <Tab label={`Added Payments (${addedPayments.totalCount})`} />
+          <Tab label={`${t('Expenses')} (${expenses.totalCount})`} />
+          <Tab label={`${t('Added Payments')} (${addedPayments.totalCount})`} />
         </Tabs>
       </Box>
 
@@ -87,17 +89,17 @@ export default function ExpenseList() {
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}><CircularProgress /></Box>
       ) : tab === 0 ? (
         <>
-          <Chip label={`Page Total: ${pageTotalExpenses.toFixed(2)} MAD`} color="error" variant="outlined" sx={{ mb: 2 }} />
+          <Chip label={`${t('Page Total:')} ${pageTotalExpenses.toFixed(2)} MAD`} color="error" variant="outlined" sx={{ mb: 2 }} />
           <TableContainer component={Paper} sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: 'error.main' }}>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Title</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Description</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Amount (MAD)</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Date</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Recurring</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold', textAlign: 'right' }}>Actions</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>{t('Title')}</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>{t('Description')}</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>{t('Amount (MAD)')}</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>{t('Date')}</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>{t('Recurring')}</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', textAlign: 'right' }}>{t('Actions')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -107,7 +109,7 @@ export default function ExpenseList() {
                     <TableCell>{e.desc || '—'}</TableCell>
                     <TableCell sx={{ fontWeight: 'bold', color: 'error.main' }}>{parseFloat(e.amount).toFixed(2)}</TableCell>
                     <TableCell>{e.date?.slice(0, 10)}</TableCell>
-                    <TableCell>{e.is_recurring && <Chip label="Recurring" size="small" color="warning" />}</TableCell>
+                    <TableCell>{e.is_recurring && <Chip label={t('Recurring')} size="small" color="warning" />}</TableCell>
                     <TableCell align="right">
                       <Tooltip title="Edit"><IconButton size="small" color="primary" onClick={() => handleEditExpense(e)}><EditIcon fontSize="small" /></IconButton></Tooltip>
                       <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => handleDeleteExpense(e)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
@@ -115,7 +117,7 @@ export default function ExpenseList() {
                   </TableRow>
                 ))}
                 {activeData.length === 0 && (
-                  <TableRow><TableCell colSpan={6} align="center" sx={{ py: 6 }}><Typography color="text.secondary">No expenses found.</Typography></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} align="center" sx={{ py: 6 }}><Typography color="text.secondary">{t('No expenses found.')}</Typography></TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
@@ -128,16 +130,16 @@ export default function ExpenseList() {
         </>
       ) : (
         <>
-          <Chip label={`Page Total: ${pageTotalAdded.toFixed(2)} MAD`} color="success" variant="outlined" sx={{ mb: 2 }} />
+          <Chip label={`${t('Page Total:')} ${pageTotalAdded.toFixed(2)} MAD`} color="success" variant="outlined" sx={{ mb: 2 }} />
           <TableContainer component={Paper} sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: 'success.main' }}>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Title</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Description</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Amount (MAD)</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Date</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold', textAlign: 'right' }}>Actions</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>{t('Title')}</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>{t('Description')}</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>{t('Amount (MAD)')}</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>{t('Date')}</TableCell>
+                  <TableCell sx={{ color: 'white', fontWeight: 'bold', textAlign: 'right' }}>{t('Actions')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -154,7 +156,7 @@ export default function ExpenseList() {
                   </TableRow>
                 ))}
                 {activeData.length === 0 && (
-                  <TableRow><TableCell colSpan={5} align="center" sx={{ py: 6 }}><Typography color="text.secondary">No additional payments found.</Typography></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} align="center" sx={{ py: 6 }}><Typography color="text.secondary">{t('No additional payments found.')}</Typography></TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
@@ -169,11 +171,11 @@ export default function ExpenseList() {
 
       <ExpenseDialog
         open={expenseDialogOpen} onClose={() => setExpenseDialogOpen(false)}
-        expense={selectedExpense} onSuccess={() => { setExpenseDialogOpen(false); setToast({ open: true, message: 'Saved successfully.', severity: 'success' }); expenses.refresh(); }}
+        expense={selectedExpense} onSuccess={() => { setExpenseDialogOpen(false); setToast({ open: true, message: t('Saved successfully.'), severity: 'success' }); expenses.refresh(); }}
       />
       <AddedPaymentDialog
         open={addedDialogOpen} onClose={() => setAddedDialogOpen(false)}
-        payment={selectedAdded} onSuccess={() => { setAddedDialogOpen(false); setToast({ open: true, message: 'Saved successfully.', severity: 'success' }); addedPayments.refresh(); }}
+        payment={selectedAdded} onSuccess={() => { setAddedDialogOpen(false); setToast({ open: true, message: t('Saved successfully.'), severity: 'success' }); addedPayments.refresh(); }}
       />
       
       <Snackbar open={toast.open} autoHideDuration={6000} onClose={() => setToast({ ...toast, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
