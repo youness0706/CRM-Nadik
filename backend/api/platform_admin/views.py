@@ -8,6 +8,7 @@ from rest_framework import serializers, status
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from api.common.pagination import StandardPagination
 
 from api.auth.serializers import RegisterSerializer
 from trainers.models import OrganizationInfo, OrganizationPayment, PlatformExpense, Staff
@@ -52,6 +53,20 @@ class PlatformExpenseSerializer(serializers.ModelSerializer):
         model = PlatformExpense
         fields = ['id', 'title', 'description', 'amount', 'date', 'created_at']
         read_only_fields = ['id', 'created_at']
+
+
+class PlatformPaymentSerializer(serializers.ModelSerializer):
+    organization_name = serializers.CharField(source='organization.name', read_only=True)
+    organization_slug = serializers.CharField(source='organization.slug', read_only=True)
+    processed_by_username = serializers.CharField(source='processed_by.username', read_only=True, allow_null=True)
+
+    class Meta:
+        model = OrganizationPayment
+        fields = [
+            'id', 'organization', 'organization_name', 'organization_slug',
+            'payment_date', 'amount', 'duration_months', 'period', 'payment_method',
+            'subscription_start', 'subscription_end', 'processed_by_username', 'notes',
+        ]
 
 
 def _organization_queryset():
@@ -260,3 +275,41 @@ class PlatformDashboardView(PlatformAdminAPIView):
         serializer.is_valid(raise_exception=True)
         expense = serializer.save(created_by=request.user)
         return Response(PlatformExpenseSerializer(expense).data, status=status.HTTP_201_CREATED)
+
+
+class PlatformPaymentHistoryView(PlatformAdminAPIView):
+    pagination_class = StandardPagination
+
+    def get(self, request):
+        payments = OrganizationPayment.objects.select_related('organization', 'processed_by').all()
+        organization_id = request.query_params.get('organization')
+        payment_method = request.query_params.get('payment_method')
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+        year = request.query_params.get('year')
+        search = request.query_params.get('search', '').strip()
+
+        if organization_id:
+            payments = payments.filter(organization_id=organization_id)
+        if payment_method:
+            payments = payments.filter(payment_method=payment_method)
+        if date_from:
+            payments = payments.filter(payment_date__gte=date_from)
+        if date_to:
+            payments = payments.filter(payment_date__lte=date_to)
+        if year:
+            payments = payments.filter(payment_date__year=year)
+        if search:
+            payments = payments.filter(
+                Q(organization__name__icontains=search)
+                | Q(organization__slug__icontains=search)
+                | Q(processed_by__username__icontains=search)
+            )
+
+        payments = payments.order_by('-payment_date', '-created_at')
+        summary = payments.aggregate(total=Sum('amount'))
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(payments, request, view=self)
+        response = paginator.get_paginated_response(PlatformPaymentSerializer(page, many=True).data)
+        response.data['total_amount'] = float(summary['total'] or 0)
+        return response

@@ -88,6 +88,28 @@ class PlatformOrganizationAdminTests(TestCase):
         self.assertEqual(expense.amount, Decimal('25.50'))
         self.assertEqual(expense.created_by, self.platform_admin)
 
+    def test_platform_payment_history_lists_and_filters_organization_receipts(self):
+        self.client.force_authenticate(self.platform_admin)
+        OrganizationPayment.objects.create(
+            organization=self.organization,
+            amount=Decimal('500.00'),
+            duration_months=1,
+            payment_method='cash',
+        )
+        OrganizationPayment.objects.create(
+            organization=self.organization,
+            amount=Decimal('800.00'),
+            duration_months=3,
+            payment_method='bank_transfer',
+        )
+
+        response = self.client.get('/api/v1/platform/payments/?payment_method=cash&search=North')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['total_amount'], 500.0)
+        self.assertEqual(response.data['results'][0]['organization_name'], 'North Club')
+
     def test_organization_admin_cannot_access_platform_dashboard(self):
         self.client.force_authenticate(self.org_admin)
 

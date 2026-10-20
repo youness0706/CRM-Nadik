@@ -1,14 +1,10 @@
 from django.contrib.auth.models import User
 from django.db import transaction
 from rest_framework import serializers
-from rest_framework.validators import UniqueValidator
 from trainers.models import Staff, Trainer, Payments, Article, Costs, Addedpay, TrainerDocument
 
 class StaffSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(
-        source='user.username',
-        validators=[UniqueValidator(queryset=User.objects.all())],
-    )
+    username = serializers.CharField(source='user.username')
     first_name = serializers.CharField(source='user.first_name', required=False)
     last_name = serializers.CharField(source='user.last_name', required=False)
     email = serializers.EmailField(source='user.email')
@@ -23,6 +19,14 @@ class StaffSerializer(serializers.ModelSerializer):
         if self.instance is None and not attrs.get('password'):
             raise serializers.ValidationError({'password': 'A password is required for new staff accounts.'})
         return attrs
+
+    def validate_username(self, value):
+        users = User.objects.filter(username=value)
+        if self.instance:
+            users = users.exclude(pk=self.instance.user_id)
+        if users.exists():
+            raise serializers.ValidationError('This username is already in use.')
+        return value
 
     def to_representation(self, instance):
         """Coerce datetime→date on instance before DRF DateField serializes it.

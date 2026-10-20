@@ -28,11 +28,28 @@ class IsOrganizationMember(BasePermission):
         # Fallback: look up directly
         try:
             staff = Staff.objects.select_related('organization').get(user=request.user)
+            if not staff.organization.is_active:
+                self.message = 'This organization is suspended. Contact the platform administrator.'
+                return False
             request.organization = staff.organization
             request.staff = staff
             return True
         except Staff.DoesNotExist:
             return False
+
+
+class IsOrganizationActive(BasePermission):
+    """Block organization users while their organization is suspended."""
+    message = 'This organization is suspended. Contact the platform administrator.'
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated or request.user.is_superuser:
+            return True
+        try:
+            staff = Staff.objects.select_related('organization').get(user=request.user)
+        except Staff.DoesNotExist:
+            return True
+        return staff.organization.is_active
 
 
 class IsOrganizationAdmin(IsOrganizationMember):

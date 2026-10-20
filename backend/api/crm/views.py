@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, F, DecimalField
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from datetime import datetime, timedelta
@@ -12,6 +12,7 @@ import calendar
 from trainers.models import (
     Staff, Trainer, Payments, Article, Costs, Addedpay, TrainerDocument, OrganizationInfo
 )
+from api.common.permissions import IsOrganizationActive
 from .serializers import (
     StaffSerializer, TrainerSerializer, TrainerCreateSerializer,
     PaymentSerializer, ArticleSerializer, CostsSerializer,
@@ -20,7 +21,7 @@ from .serializers import (
 
 
 class BaseOrganizationViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsOrganizationActive]
 
     def get_organization(self):
         try:
@@ -137,7 +138,7 @@ class AddedpayViewSet(BaseOrganizationViewSet):
 
 
 class TrainerDocumentsView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsOrganizationActive]
 
     def _get_trainer(self, request, trainer_pk):
         try:
@@ -163,7 +164,7 @@ class TrainerDocumentsView(APIView):
 
 
 class TrainerDocumentDetailView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsOrganizationActive]
 
     def delete(self, request, trainer_pk, pk):
         try:
@@ -184,7 +185,7 @@ class TrainerDocumentDetailView(APIView):
 # ─── Dashboard Stats API ────────────────────────────────────────────
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, IsOrganizationActive])
 def dashboard_stats(request):
     """Return dashboard KPIs for the logged-in user's organization."""
     try:
@@ -276,7 +277,7 @@ def dashboard_stats(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, IsOrganizationActive])
 def unpaid_members(request):
     """Return list of members who haven't paid monthly for a given month/year."""
     try:
@@ -315,7 +316,7 @@ def unpaid_members(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, IsOrganizationActive])
 def financial_summary(request):
     """Return financial overview for the organization."""
     try:
@@ -327,46 +328,93 @@ def financial_summary(request):
     today = timezone.now().date()
     year = int(request.query_params.get('year', today.year))
 
-    # Monthly income breakdown
+    amount_field = DecimalField(max_digits=14, decimal_places=2)
+    yearly_payments = Payments.objects.filter(organization=org, paymentdate__year=year)
+    yearly_added = Addedpay.objects.filter(organization=org, date__year=year)
+    yearly_costs = Costs.objects.filter(organization=org, date__year=year)
+    yearly_articles = Article.objects.filter(organization=org, date__year=year).annotate(
+        participant_count=Count('trainees', distinct=True),
+    )
+
+    payment_total = yearly_payments.aggregate(total=Sum('paymentAmount'))['total'] or 0
+    added_total = yearly_added.aggregate(total=Sum('amount'))['total'] or 0
+    operating_cost_total = yearly_costs.aggregate(total=Sum('amount'))['total'] or 0
+    article_totals = yearly_articles.aggregate(
+        participation_income=Sum(F('participetion_price') * F('participant_count'), output_field=amount_field),
+        costs=Sum('costs'),
+    )
+    event_income_total = article_totals['participation_income'] or 0
+    event_cost_total = article_totals['costs'] or 0
+
+    # Monthly income and expense series for report charts.
     monthly_income = []
+    monthly_breakdown = []
     for m in range(1, 13):
-        income = Payments.objects.filter(
-            organization=org,
-            paymentdate__year=year,
-            paymentdate__month=m,
-        ).aggregate(total=Sum('paymentAmount'))['total'] or 0
-        monthly_income.append({'month': m, 'income': float(income)})
+        payments_income = yearly_payments.filter(paymentdate__month=m).aggregate(total=Sum('paymentAmount'))['total'] or 0
+        additional_income = yearly_added.filter(date__month=m).aggregate(total=Sum('amount'))['total'] or 0
+        operating_expenses = yearly_costs.filter(date__month=m).aggregate(total=Sum('amount'))['total'] or 0
+        article_month = yearly_articles.filter(date__month=m).aggregate(
+            participation_income=Sum(F('participetion_price') * F('participant_count'), output_field=amount_field),
+            costs=Sum('costs'),
+        )
+        event_income = article_month['participation_income'] or 0
+        event_expenses = article_month['costs'] or 0
+        month_income = payments_income + additional_income + event_income
+        month_expenses = operating_expenses + event_expenses
+        monthly_income.append({'month': m, 'income': float(month_income)})
+        monthly_breakdown.append({
+            'month': m,
+            'income': float(month_income),
+            'payments': float(payments_income),
+            'additional_income': float(additional_income),
+            'event_income': float(event_income),
+            'expenses': float(month_expenses),
+            'operating_expenses': float(operating_expenses),
+            'event_expenses': float(event_expenses),
+            'net': float(month_income - month_expenses),
+        })
 
-    # Total income this year
-    total_income = sum(m['income'] for m in monthly_income)
+    total_income = payment_total + added_total + event_income_total
 
-    # Total expenses this year
-    total_expenses = Costs.objects.filter(
-        organization=org,
-        date__year=year,
-    ).aggregate(total=Sum('amount'))['total'] or 0
+    # Project recurring salary and rent commitments into the selected year.
+    year_start = datetime(year, 1, 1).date()
+    year_end = datetime(year, 12, 31).date()
+    total_salaries = 0
+    for salary, started in Staff.objects.filter(organization=org).values_list('salary', 'started'):
+        started_date = started.date() if isinstance(started, datetime) else started
+        salary_months = 12 if started_date.year < year else 13 - started_date.month if started_date.year == year else 0
+        total_salaries += salary * salary_months
 
-    # Total additional payments
-    total_added = Addedpay.objects.filter(
-        organization=org,
-        date__year=year,
-    ).aggregate(total=Sum('amount'))['total'] or 0
+    rent = 0
+    rent_date = org.datepay.date() if isinstance(org.datepay, datetime) else org.datepay
+    if org.rent_amount and rent_date:
+        while rent_date <= year_end:
+            if rent_date >= year_start:
+                rent += org.rent_amount
+            rent_date += timedelta(days=calendar.monthrange(rent_date.year, rent_date.month)[1])
 
-    # Staff salaries
-    total_salaries = Staff.objects.filter(
-        organization=org,
-    ).aggregate(total=Sum('salary'))['total'] or 0
-
-    # Rent
-    rent = float(org.rent_amount) if org.rent_amount else 0
+    total_expenses = operating_cost_total + event_cost_total + total_salaries + rent
+    rent = float(rent)
 
     return Response({
         'year': year,
         'monthly_income': monthly_income,
+        'monthly_breakdown': monthly_breakdown,
         'total_income': float(total_income),
         'total_expenses': float(total_expenses),
-        'total_added_payments': float(total_added),
+        'total_added_payments': float(added_total),
+        'income_breakdown': {
+            'payments': float(payment_total),
+            'additional_payments': float(added_total),
+            'events': float(event_income_total),
+        },
+        'expense_breakdown': {
+            'operating': float(operating_cost_total),
+            'events': float(event_cost_total),
+            'salaries': float(total_salaries),
+            'rent': rent,
+        },
         'total_salaries': float(total_salaries),
         'rent': rent,
-        'net_profit': float(total_income) + float(total_added) - float(total_expenses) - float(total_salaries) - rent,
+        'net_profit': float(total_income) - float(total_expenses),
     })

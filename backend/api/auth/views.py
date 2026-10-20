@@ -13,6 +13,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from django.contrib.auth import authenticate
 from trainers.models import OrganizationInfo, Staff
+from api.common.permissions import IsOrganizationActive
 
 from .serializers import (
     NadikTokenObtainPairSerializer,
@@ -154,7 +155,7 @@ class MeView(APIView):
     GET  /api/v1/auth/me/  — Get current user profile
     PATCH /api/v1/auth/me/ — Update profile (first_name, last_name, email)
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOrganizationActive]
 
     @extend_schema(tags=['auth'], summary='Get current user profile')
     def get(self, request):
@@ -174,7 +175,7 @@ class MeView(APIView):
 
 
 class OrganizationSettingsView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOrganizationActive]
 
     @extend_schema(tags=['auth'], summary='Update organization settings')
     def patch(self, request):
@@ -209,7 +210,7 @@ class ChangePasswordView(APIView):
     """
     POST /api/v1/auth/password/change/
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOrganizationActive]
 
     @extend_schema(tags=['auth'], summary='Change password')
     def post(self, request):

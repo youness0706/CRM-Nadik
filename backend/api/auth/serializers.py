@@ -2,6 +2,7 @@
 Nadik Authentication Serializers
 """
 from rest_framework import serializers
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
@@ -57,6 +58,8 @@ class NadikTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Add organization info if available
         try:
             staff = Staff.objects.select_related('organization').get(user=user)
+            if not staff.organization.is_active:
+                raise AuthenticationFailed('This organization is suspended. Contact the platform administrator.')
             data['organization'] = {
                 'id': staff.organization.id,
                 'name': staff.organization.name,

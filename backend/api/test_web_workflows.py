@@ -1,12 +1,14 @@
 import tempfile
+from datetime import datetime
 
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
 
-from trainers.models import OrganizationInfo, Staff, Trainer, Article
+from trainers.models import Addedpay, Article, Costs, OrganizationInfo, Payments, Staff, Trainer
 
 
 class WebWorkflowContractTests(TestCase):
@@ -56,6 +58,60 @@ class WebWorkflowContractTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual({member['id'] for member in response.data['results']}, {active_member.id, inactive_member.id})
+
+    def test_financial_summary_reconciles_income_expenses_and_event_participants(self):
+        first_member = self.create_member('First', 'Participant')
+        second_member = self.create_member('Second', 'Participant')
+        Payments.objects.create(
+            organization=self.organization,
+            trainer=first_member,
+            paymentdate='2026-02-05',
+            paymentCategry='month',
+            paymentAmount='100.00',
+        )
+        Addedpay.objects.create(
+            organization=self.organization,
+            title='Sponsorship',
+            amount='25.00',
+            date=timezone.make_aware(datetime(2026, 2, 10, 12)),
+        )
+        Costs.objects.create(
+            organization=self.organization,
+            cost='Equipment',
+            amount='20.00',
+            date=timezone.make_aware(datetime(2026, 2, 12, 12)),
+        )
+        event = Article.objects.create(
+            organization=self.organization,
+            title='February event',
+            date='2026-02-15',
+            location='Club',
+            content='Event report',
+            category='League',
+            area='national',
+            costs='10.00',
+            participetion_price='12.00',
+        )
+        event.trainees.set([first_member, second_member])
+        owner_staff = Staff.objects.get(user=self.user)
+        owner_staff.salary = '100.00'
+        owner_staff.started = '2026-02-01'
+        owner_staff.save(update_fields=['salary', 'started'])
+        self.organization.rent_amount = '200.00'
+        self.organization.datepay = '2026-02-01'
+        self.organization.save(update_fields=['rent_amount', 'datepay'])
+
+        response = self.client.get('/api/v1/crm/financial/?year=2026')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['total_income'], 149.0)
+        self.assertEqual(response.data['total_expenses'], 3330.0)
+        self.assertEqual(response.data['net_profit'], -3181.0)
+        self.assertEqual(response.data['income_breakdown']['events'], 24.0)
+        self.assertEqual(response.data['expense_breakdown']['salaries'], 1100.0)
+        self.assertEqual(response.data['expense_breakdown']['rent'], 2200.0)
+        self.assertEqual(response.data['monthly_breakdown'][1]['income'], 149.0)
+        self.assertEqual(response.data['monthly_breakdown'][1]['expenses'], 30.0)
 
     def test_staff_creation_reports_duplicate_usernames_as_validation_errors(self):
         payload = {

@@ -41,6 +41,17 @@ class CRMIntegrationTests(TestCase):
         response = self.client.get('/api/v1/crm/members/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
+    def test_suspended_organization_cannot_use_existing_token_or_log_in(self):
+        self.org1.is_active = False
+        self.org1.save(update_fields=['is_active'])
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + self.token1)
+
+        api_response = self.client.get('/api/v1/crm/members/')
+        login_response = self.client.post('/api/v1/auth/login/', {'username': 'admin1', 'password': 'password'})
+
+        self.assertEqual(api_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(login_response.status_code, status.HTTP_401_UNAUTHORIZED)
+
     # ─── MEMBER CRUD & ORG ISOLATION ─────────────────────────────────
 
     def test_member_create_and_isolation(self):
@@ -143,6 +154,38 @@ class CRMIntegrationTests(TestCase):
 
         staff_delete = self.client.delete(f'/api/v1/crm/staff/{staff_id}/')
         self.assertEqual(staff_delete.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_admin_can_edit_staff_without_changing_username(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + self.token1)
+        coach = User.objects.create_user(
+            username='unchanged-coach',
+            email='unchanged-coach@test.com',
+            password='secure123',
+        )
+        staff = Staff.objects.create(
+            user=coach,
+            organization=self.org1,
+            role='Coach',
+            is_admin=False,
+        )
+
+        staff_id = staff.id
+        update = self.client.put(f'/api/v1/crm/staff/{staff_id}/', {
+            'username': 'unchanged-coach',
+            'email': 'unchanged-coach@test.com',
+            'first_name': '',
+            'last_name': '',
+            'role': 'Senior Coach',
+            'is_admin': False,
+            'started': '2026-01-15',
+            'datepay': '2026-01-15',
+            'salary': '0.00',
+            'phone_number': '',
+        }, format='json')
+
+        self.assertEqual(update.status_code, status.HTTP_200_OK, update.data)
+        self.assertEqual(update.data['username'], 'unchanged-coach')
+        self.assertEqual(update.data['role'], 'Senior Coach')
 
     def test_nonadmin_cannot_create_staff(self):
         """A non-admin staff member must be denied when trying to create staff."""
