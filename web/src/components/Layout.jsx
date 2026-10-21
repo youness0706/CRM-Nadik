@@ -28,7 +28,7 @@ export default function Layout({ children }) {
   const [profile, setProfile] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { language, setLanguage, t } = useLanguage();
+  const { language, setLanguage, direction, t } = useLanguage();
 
   useEffect(() => {
     apiClient.get('/auth/me/')
@@ -150,33 +150,34 @@ export default function Layout({ children }) {
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', direction: 'ltr' }}>
       <AppBar
         position="fixed"
         elevation={0}
         sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` },
+          width: { xs: '100%', sm: `calc(100% - ${drawerWidth}px)` },
+          left: { xs: 0, sm: direction === 'rtl' ? 0 : `${drawerWidth}px` },
+          right: { xs: 0, sm: direction === 'rtl' ? `${drawerWidth}px` : 0 },
           backgroundColor: 'background.paper',
           color: 'text.primary',
           borderBottom: '1px solid',
           borderColor: 'divider',
         }}
       >
-        <Toolbar>
+        <Toolbar sx={{ direction }}>
           <IconButton
             color="inherit"
-            edge="start"
+            edge={direction === 'rtl' ? 'end' : 'start'}
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
+            sx={{ marginInlineEnd: 2, display: { sm: 'none' } }}
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" fontWeight="600" component="div">
+          <Typography variant="h6" fontWeight="600" component="div" dir={direction} sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {t(menuItems.find(i => i.path === location.pathname)?.text || 'Dashboard')}
           </Typography>
           <Box sx={{ flexGrow: 1 }} />
-          <FormControl size="small" sx={{ minWidth: 118 }}>
+          <FormControl size="small" sx={{ minWidth: 118, flexShrink: 0, direction }}>
             <Select
               value={language}
               onChange={(event) => setLanguage(event.target.value)}
@@ -189,9 +190,10 @@ export default function Layout({ children }) {
           </FormControl>
         </Toolbar>
       </AppBar>
-      <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>
+      <Box component="nav" sx={{ order: direction === 'rtl' ? 1 : 0, width: { xs: 0, sm: drawerWidth }, flexShrink: 0 }}>
         <Drawer
           variant="temporary"
+          anchor={direction === 'rtl' ? 'right' : 'left'}
           open={mobileOpen}
           onClose={handleDrawerToggle}
           ModalProps={{ keepMounted: true }}
@@ -204,9 +206,16 @@ export default function Layout({ children }) {
         </Drawer>
         <Drawer
           variant="permanent"
+          anchor={direction === 'rtl' ? 'right' : 'left'}
           sx={{
             display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, borderRight: '1px solid', borderColor: 'divider' },
+            '& .MuiDrawer-paper': {
+              boxSizing: 'border-box',
+              width: drawerWidth,
+              borderRight: direction === 'rtl' ? 0 : '1px solid',
+              borderLeft: direction === 'rtl' ? '1px solid' : 0,
+              borderColor: 'divider',
+            },
           }}
           open
         >
@@ -215,7 +224,8 @@ export default function Layout({ children }) {
       </Box>
       <Box
         component="main"
-        sx={{ flexGrow: 1, p: { xs: 2, sm: 4 }, width: { sm: `calc(100% - ${drawerWidth}px)` }, minHeight: '100vh' }}
+        dir={direction}
+        sx={{ order: direction === 'rtl' ? 0 : 1, flexGrow: 1, minWidth: 0, maxWidth: '100%', p: { xs: 1.5, sm: 4 }, width: { xs: '100%', sm: `calc(100% - ${drawerWidth}px)` }, minHeight: '100vh' }}
       >
         <Toolbar />
         {children}

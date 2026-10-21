@@ -24,9 +24,9 @@ function DonutBreakdown({ title, items, total, colors, emptyLabel, t }) {
   const background = stops.length ? `conic-gradient(${stops.join(', ')})` : '#e6ebee';
 
   return (
-    <Paper sx={{ p: 2.5, height: '100%', border: '1px solid', borderColor: 'divider', borderRadius: 1, boxShadow: 'none' }}>
+    <Paper sx={{ p: 2.5, height: '100%', minWidth: 0, border: '1px solid', borderColor: 'divider', borderRadius: 1, boxShadow: 'none' }}>
       <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>{title}</Typography>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(110px, 0.8fr) 1.2fr', sm: '140px 1fr' }, gap: 2, alignItems: 'center' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: '140px minmax(0, 1fr)' }, gap: 2, alignItems: 'center', minWidth: 0 }}>
         <Box role="img" aria-label={`${title}: ${total.toFixed(2)} MAD`} sx={{ width: '100%', maxWidth: 140, aspectRatio: '1', borderRadius: '50%', background, display: 'grid', placeItems: 'center', mx: 'auto' }}>
           <Box sx={{ width: '62%', aspectRatio: '1', borderRadius: '50%', bgcolor: 'background.paper', display: 'grid', alignContent: 'center', textAlign: 'center', px: 0.5 }}>
             <Typography variant="caption" color="text.secondary">{t('Total')}</Typography>
@@ -34,7 +34,7 @@ function DonutBreakdown({ title, items, total, colors, emptyLabel, t }) {
             <Typography variant="caption" color="text.secondary">MAD</Typography>
           </Box>
         </Box>
-        <Box sx={{ display: 'grid', gap: 1 }}>
+        <Box sx={{ display: 'grid', gap: 1, minWidth: 0 }}>
           {items.map((item, index) => {
             const share = total > 0 ? (item.value / total) * 100 : 0;
             return (
@@ -60,7 +60,7 @@ function DonutBreakdown({ title, items, total, colors, emptyLabel, t }) {
 function MonthlyActivityChart({ months, language, t }) {
   const peak = Math.max(1, ...months.flatMap((month) => [month.income, month.expenses]));
   return (
-    <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3, border: '1px solid', borderColor: 'divider', borderRadius: 1, boxShadow: 'none' }}>
+    <Paper sx={{ p: { xs: 2, sm: 3 }, mb: 3, width: '100%', minWidth: 0, border: '1px solid', borderColor: 'divider', borderRadius: 1, boxShadow: 'none' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 2, flexWrap: 'wrap', mb: 2 }}>
         <Box>
           <Typography variant="h6" fontWeight={700}>{t('Monthly cash flow')}</Typography>
@@ -71,7 +71,7 @@ function MonthlyActivityChart({ months, language, t }) {
           <Typography variant="caption"><Box component="span" sx={{ color: 'warning.main' }}>■</Box> {t('Expenses')}</Typography>
         </Box>
       </Box>
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(12, minmax(44px, 1fr))', gap: 1, overflowX: 'auto', pb: 0.5 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(12, 44px)', gap: 1, width: '100%', minWidth: 0, overflowX: 'auto', pb: 0.5 }}>
         {months.map((month) => (
           <Box key={month.month} sx={{ minWidth: 44, textAlign: 'center' }}>
             <Box sx={{ height: 164, display: 'flex', alignItems: 'end', justifyContent: 'center', gap: 0.5, borderBottom: '1px solid', borderColor: 'divider' }}>

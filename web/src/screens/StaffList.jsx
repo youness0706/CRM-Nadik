@@ -62,9 +62,9 @@ export default function StaffList() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 3 }}>
         <Typography variant="h4" fontWeight="bold">{t('Staff')}</Typography>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
           <Chip label={`${t('Page Salaries:')} ${pageTotalSalaries.toFixed(2)} MAD`} color="info" variant="outlined" />
           <Button variant="contained" startIcon={<AddIcon />} size="large" onClick={handleAddClick}>{t('Add Staff')}</Button>
         </Box>
@@ -72,7 +72,7 @@ export default function StaffList() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <TableContainer component={Paper} sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+      <TableContainer component={Paper} sx={{ width: '100%', maxWidth: '100%', minWidth: 0, overflowX: 'auto', borderRadius: 2, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
         <Table>
           <TableHead>
             <TableRow sx={{ backgroundColor: 'background.default' }}>
@@ -108,7 +108,7 @@ export default function StaffList() {
                   <TableCell>{s.role}</TableCell>
                   <TableCell>
                     <Chip
-                      label={s.is_admin ? 'Admin' : 'Staff'}
+                      label={s.is_admin ? t('Admin') : t('Staff')}
                       color={s.is_admin ? 'primary' : 'default'}
                       size="small"
                       sx={{ borderRadius: 1 }}
@@ -119,12 +119,12 @@ export default function StaffList() {
                   <TableCell>{s.started}</TableCell>
                   <TableCell>{s.datepay || '—'}</TableCell>
                   <TableCell align="right">
-                    <Tooltip title="Edit Staff">
+                    <Tooltip title={t('Edit Staff')}>
                       <IconButton size="small" color="primary" onClick={() => handleEditClick(s)}>
                         <EditIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Delete Staff">
+                    <Tooltip title={t('Delete Staff')}>
                       <IconButton size="small" color="error" onClick={() => handleDeleteClick(s)}>
                         <DeleteIcon fontSize="small" />
                       </IconButton>
@@ -143,6 +143,8 @@ export default function StaffList() {
           rowsPerPage={rowsPerPage}
           onRowsPerPageChange={handleRowsPerPageChange}
           rowsPerPageOptions={[10, 25, 50, 100]}
+          labelRowsPerPage={t('Rows per page:')}
+          labelDisplayedRows={({ from, to, count }) => `${from}–${to} ${t('of')} ${count === -1 ? `${t('more than')} ${to}` : count}`}
         />
       </TableContainer>
 
