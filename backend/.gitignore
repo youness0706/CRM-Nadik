@@ -2,8 +2,13 @@ crm_back/settings.py
 .sqlite3
 media/
 .env
+.env.local
+.env.*.local
 test_subscription_system.py
 __pycache__/
-trainers/migrations/
+!trainers/migrations/
+trainers/migrations/*
+!trainers/migrations/*.py
 venv/
 venv312/
+.venv/

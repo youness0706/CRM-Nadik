@@ -98,14 +98,16 @@ The web app will run on `http://localhost:5173/` and is configured via `.env.dev
 
 Before deploying Nadik to production, ensure the following:
 
-- [ ] **Backend `DEBUG`:** Set `DEBUG=False` in `.env`
+- [ ] **Backend `DEBUG`:** Set `DEBUG=False` in the deployment environment.
 - [ ] **Allowed Hosts:** Configure `ALLOWED_HOSTS` with production domain.
 - [ ] **CORS:** Restrict `CORS_ALLOWED_ORIGINS` to the exact frontend domain (remove `*` or localhost).
-- [ ] **Secret Key:** Generate a new, secure `SECRET_KEY`.
+- [ ] **Secret Key:** Generate a new, secure `DJANGO_SECRET_KEY`.
 - [ ] **Database:** Migrate from SQLite to PostgreSQL.
-- [ ] **Static/Media Files:** Configure a production server (Nginx/Gunicorn) and cloud storage (AWS S3) for media uploads.
-- [ ] **Web Build:** Run `npm run build` and serve the `dist/` folder via a static server or CDN.
-- [ ] **Web Env:** Ensure `VITE_API_BASE_URL` points to the production HTTPS API.
+- [ ] **Static/Media Files:** Vercel serves collected static files; configure Cloudinary for persistent user uploads.
+- [ ] **Web Build:** Run `npm run build` and deploy the `web/` project to Vercel.
+- [ ] **Web Env:** Set `VITE_API_BASE_URL` to the production HTTPS API.
+
+For the split Vercel deployment, PostgreSQL environment variables, and migration steps, see [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md).
 
 ## Testing
 

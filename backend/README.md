@@ -14,7 +14,7 @@ It has been refactored into an API-first architecture using Django REST Framewor
 ## Prerequisites
 
 - Python 3.10+
-- Database (SQLite for local dev, MySQL/PostgreSQL for production)
+- Database (SQLite for local development, PostgreSQL for production)
 
 ## Setup Instructions
 
@@ -46,7 +46,7 @@ It has been refactored into an API-first architecture using Django REST Framewor
    - `DJANGO_SECRET_KEY`: Generate a secure random key.
    - `DEBUG`: Set to `True` for dev, `False` for production.
    - `DEVELOPMENT_MODE`: Set to `True` to use local SQLite database.
-   - `DATABASE_URL`: Set your production database URL (e.g., `mysql://user:pass@host:port/dbname`).
+   - `DATABASE_URL`: Set your pooled PostgreSQL URL in production (TLS required).
    - `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS`: Set your domains.
 
 5. **Run Database Migrations:**
@@ -96,3 +96,4 @@ The API uses **JSON Web Tokens (JWT)** for authentication.
 
 - **Never commit `.env` to version control.** It contains live database credentials, email passwords, and Cloudinary secrets.
 - Always use `require_organization` (legacy) or `IsOrganizationMember` (API) permissions to prevent cross-tenant data leaks (IDOR).
+- For the Vercel deployment steps, PostgreSQL variables, and migration commands, see [../VERCEL_DEPLOYMENT.md](../VERCEL_DEPLOYMENT.md).
