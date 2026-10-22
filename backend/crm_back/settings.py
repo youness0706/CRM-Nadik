@@ -93,7 +93,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'backend.backend.crm_back.urls'
+ROOT_URLCONF = 'backend.crm_back.urls'
 
 TEMPLATES = [
     {
@@ -113,8 +113,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'crm_back.wsgi.application'
-
-
 
 # =============================================================================
 # DATABASE
