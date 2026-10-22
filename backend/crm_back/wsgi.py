@@ -16,3 +16,4 @@ sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.crm_back.settings')
 
 application = get_wsgi_application()
+
