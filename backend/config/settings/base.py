@@ -64,7 +64,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'crm_back.urls'
+ROOT_URLCONF = 'backend.backend.backend.backend.backend.crm_back.urls'
 
 TEMPLATES = [
     {

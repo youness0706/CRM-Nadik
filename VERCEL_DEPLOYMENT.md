@@ -10,7 +10,7 @@ Create a managed PostgreSQL database (for example, from a Vercel Marketplace int
 
 Create a Vercel project connected to this repository with **Root Directory** set to `backend/`. Vercel detects Django from `manage.py`; keep the default install/build settings and do not set a static output directory. Python is pinned to 3.12 in `backend/.python-version`.
 
-If the build log says it found `backend/.python-version` or `backend/requirements.txt` and then fails with `No module named 'crm_back.settings'`, the project is building from the repository root. Change **Settings → Build and Deployment → Root Directory** to `backend` and redeploy; do not add `backend.` to `DJANGO_SETTINGS_MODULE`.
+If the build log says it found `backend/.python-version` or `backend/requirements.txt` and then fails with `No module named 'backend.crm_back.settings'`, the project is building from the repository root. Change **Settings → Build and Deployment → Root Directory** to `backend` and redeploy; do not add `backend.` to `DJANGO_SETTINGS_MODULE`.
 
 Add these variables under the backend project’s Production and Preview environments as appropriate:
 

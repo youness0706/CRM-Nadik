@@ -2,7 +2,7 @@ import os
 import django
 from django.core.management import call_command
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "crm_back.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.crm_back.settings")
 django.setup()
 
 from django.contrib.auth.models import User
