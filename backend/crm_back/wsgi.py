@@ -11,6 +11,8 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'crm_back.settings')
+import pathlib, sys
+sys.path.append(str(pathlib.Path(__file__).resolve().parents[2]))
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.crm_back.settings')
 
 application = get_wsgi_application()
