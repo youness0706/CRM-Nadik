@@ -14,9 +14,14 @@ if 'collectstatic' not in sys.argv:
     DATABASE_URL = os.getenv('DATABASE_URL') or os.getenv('POSTGRES_URL')
     if not DATABASE_URL:
         raise Exception("DATABASE_URL or POSTGRES_URL is required in production")
-    DATABASES = {
-        'default': dj_database_url.parse(DATABASE_URL)
-    }
+    database_config = dj_database_url.parse(DATABASE_URL)
+    # dj-database-url maps sslmode=require to MySQLdb's ``ssl_mode`` option.
+    # PyMySQL uses the DB-API ``ssl`` option instead and rejects ``ssl_mode``.
+    if database_config.get('ENGINE') == 'django.db.backends.mysql':
+        options = database_config.setdefault('OPTIONS', {})
+        if options.pop('ssl_mode', None):
+            options['ssl'] = {}
+    DATABASES = {'default': database_config}
 
 # Security headers
 SECURE_BROWSER_XSS_FILTER = True
