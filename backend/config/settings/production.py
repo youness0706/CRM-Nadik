@@ -7,11 +7,13 @@ import sys
 
 DEBUG = False
 
-# Database — required in production
-if len(sys.argv) > 1 and sys.argv[1] != 'collectstatic':
-    DATABASE_URL = os.getenv('DATABASE_URL')
+# Database — required at runtime in production. Vercel imports the WSGI
+# application without a management-command argument, so do not use argv to
+# decide whether the application needs a database configuration.
+if 'collectstatic' not in sys.argv:
+    DATABASE_URL = os.getenv('DATABASE_URL') or os.getenv('POSTGRES_URL')
     if not DATABASE_URL:
-        raise Exception("DATABASE_URL environment variable is required in production")
+        raise Exception("DATABASE_URL or POSTGRES_URL is required in production")
     DATABASES = {
         'default': dj_database_url.parse(DATABASE_URL)
     }
