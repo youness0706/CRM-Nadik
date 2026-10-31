@@ -9,6 +9,11 @@ https://docs.djangoproject.com/en/5.1/howto/deployment/wsgi/
 
 import os
 
+import pymysql
+
+# Django's MySQL backend imports MySQLdb; Vercel uses the pure-Python driver.
+pymysql.install_as_MySQLdb()
+
 from django.core.wsgi import get_wsgi_application
 
 import pathlib, sys
