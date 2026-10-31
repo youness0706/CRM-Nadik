@@ -8,7 +8,7 @@ def main():
     """Run administrative tasks."""
     import pathlib, sys
     sys.path.append(str(pathlib.Path(__file__).resolve().parent))
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'crm_back.settings')
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production')
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
