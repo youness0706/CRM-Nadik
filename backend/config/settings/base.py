@@ -20,11 +20,20 @@ except Exception:
 # Security
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", get_random_secret_key())
 
-ALLOWED_HOSTS = [
-    host.strip()
-    for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
-    if host.strip()
-]
+_allowed_hosts = os.getenv(
+    "ALLOWED_HOSTS",
+    "localhost,127.0.0.1,crm-nadik.vercel.app",
+).split(",")
+for _vercel_host_var in (
+    "VERCEL_URL",
+    "VERCEL_PROJECT_PRODUCTION_URL",
+    "VERCEL_BRANCH_URL",
+):
+    _vercel_host = os.getenv(_vercel_host_var)
+    if _vercel_host:
+        _allowed_hosts.append(_vercel_host)
+
+ALLOWED_HOSTS = [host.strip() for host in _allowed_hosts if host.strip()]
 
 # Application definition
 INSTALLED_APPS = [
