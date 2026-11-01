@@ -25,11 +25,12 @@ from reportlab.pdfbase.ttfonts import TTFont
 from io import BytesIO
 import hashlib
 import os
+from xml.sax.saxutils import escape
 
 import arabic_reshaper
 from bidi.algorithm import get_display
 
-from ..models import Payments
+from ..models import Payments, Staff
 
 
 # ======================================================
@@ -97,15 +98,21 @@ def get_saas_logo_path() -> str | None:
 
 @login_required
 def download_payment_invoice(request, payment_id):
-    payment = get_object_or_404(
-        Payments.objects.select_related("trainer", "organization"),
-        id=payment_id
-    )
-
-    # Security check (kept as you had)
-    if not getattr(request, "organization", None) or request.organization.id != payment.organization.id:
+    try:
+        staff = Staff.objects.select_related("organization").get(user=request.user)
+    except Staff.DoesNotExist:
         raise Http404("Payment not found")
 
+    organization = staff.organization
+    request_organization = getattr(request, "organization", None)
+    if request_organization and request_organization.id != organization.id:
+        raise Http404("Payment not found")
+
+    payment = get_object_or_404(
+        Payments.objects.select_related("trainer", "organization"),
+        id=payment_id,
+        organization=organization,
+    )
     org = payment.organization
     trainer = payment.trainer
 
@@ -208,19 +215,35 @@ def download_payment_invoice(request, payment_id):
         return t
 
     # ==================================================
-    # Top row: SaaS logo + Title bar
+    # Top row: organization logo + title bar
     # ==================================================
 
-    logo_path = get_saas_logo_path()
+    logo_source = None
+    if org.logo:
+        with org.logo.open("rb") as logo_file:
+            logo_source = BytesIO(logo_file.read())
+    else:
+        logo_source = get_saas_logo_path()
     logo_cell = ""
-    if logo_path:
-        try:
-            logo_cell = Image(logo_path, width=3.2 * cm, height=1.6 * cm)
-        except Exception:
-            logo_cell = ""
+    if logo_source:
+        logo_cell = Image(logo_source, width=3.2 * cm, height=1.6 * cm, kind="proportional")
+
+    title_style = ParagraphStyle(
+        "InvoiceTitle",
+        parent=styles["Normal"],
+        fontName="DejaVu-Bold",
+        fontSize=15,
+        leading=22,
+        alignment=TA_RIGHT,
+        textColor=colors.white,
+    )
+    title_content = Paragraph(
+        f"{escape(ar(org.name))}<br/>{escape(ar('إيصال دفع'))}",
+        title_style,
+    )
 
     title_table = Table(
-        [[logo_cell, ar("إيصال دفع")]],
+        [[logo_cell, title_content]],
         colWidths=[4.0 * cm, PAGE_W - 4.0 * cm]
     )
     title_table.setStyle(TableStyle([

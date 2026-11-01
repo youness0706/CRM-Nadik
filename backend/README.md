@@ -92,6 +92,14 @@ The API uses **JSON Web Tokens (JWT)** for authentication.
    ```
 3. **Refresh Token** (`POST /api/v1/auth/refresh/`): Submit your refresh token to get a new access token when it expires.
 
+## Organization logos and payment documents
+
+Organization admins can upload a PNG, JPG, or WebP logo (up to 5 MB) from **Settings → Organization**. The logo is shown in the navigation and included in payment invoices and payment-list Word exports; invoices also show the organization name.
+
+On the Payments screen, filter by payment type, trainee, and dates, then choose **Paid** or **Unpaid** and select **Export Word**. Unpaid exports list active trainees with no payment matching the selected type and period; if no dates are selected, the current month is used. Individual payment invoices can be downloaded from each payment row.
+
+The corresponding authenticated endpoints are `GET /api/v1/crm/payments/export/docx/` and `GET /api/v1/crm/payments/{id}/invoice/`.
+
 ## Important Note on Security
 
 - **Never commit `.env` to version control.** It contains live database credentials, email passwords, and Cloudinary secrets.

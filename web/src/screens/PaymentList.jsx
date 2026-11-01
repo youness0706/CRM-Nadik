@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Button, Box, Chip, TextField, CircularProgress,
   FormControl, InputLabel, Select, MenuItem, TablePagination,
-  IconButton, Tooltip, Snackbar, Alert
+  IconButton, Tooltip, Snackbar, Alert, Autocomplete
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import DownloadIcon from '@mui/icons-material/Download';
+import ReceiptIcon from '@mui/icons-material/Receipt';
 import usePagination from '../hooks/usePagination';
 import PaymentDialog from '../components/PaymentDialog';
 import apiClient from '../services/api';
+import { getApiErrorMessage } from '../services/errors';
 import { useLanguage } from '../state/LanguageContext';
 
 const PAYMENT_TYPES = [
@@ -26,6 +29,12 @@ export default function PaymentList() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
+  const [members, setMembers] = useState([]);
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [exportStatus, setExportStatus] = useState('paid');
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
 
   const {
     data: payments,
@@ -40,6 +49,66 @@ export default function PaymentList() {
     applyFilter,
     refresh
   } = usePagination('/crm/payments/', { paymentCategry: 'all', start_date: '', end_date: '' });
+
+  useEffect(() => {
+    let active = true;
+    const fetchMembers = async () => {
+      try {
+        const response = await apiClient.get('/crm/members/', {
+          params: { is_active: 'all', search: memberSearch, per_page: 100 },
+        });
+        if (active) setMembers(response.data.results || response.data || []);
+      } catch (requestError) {
+        if (active) setExportError(getApiErrorMessage(requestError, 'Unable to load trainees.'));
+      }
+    };
+    fetchMembers();
+    return () => { active = false; };
+  }, [memberSearch]);
+
+  const saveDownload = (response, filename) => {
+    const downloadUrl = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 1000);
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    setExportError('');
+    try {
+      const response = await apiClient.get('/crm/payments/export/docx/', {
+        params: {
+          ...filters,
+          trainer: selectedMember?.id || '',
+          status: exportStatus,
+        },
+        responseType: 'blob',
+      });
+      saveDownload(response, `nadik-${exportStatus}-payments.docx`);
+    } catch (requestError) {
+      setExportError(getApiErrorMessage(requestError, 'Unable to export the payment list.'));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleInvoiceDownload = async (payment) => {
+    try {
+      const response = await apiClient.get(`/crm/payments/${payment.id}/invoice/`, { responseType: 'blob' });
+      saveDownload(response, `invoice-${payment.id}.pdf`);
+    } catch (requestError) {
+      setToast({
+        open: true,
+        message: getApiErrorMessage(requestError, 'Unable to download the payment invoice.'),
+        severity: 'error',
+      });
+    }
+  };
 
   // Compute total of current page (backend might need a dedicated endpoint for overall total)
   const pageTotal = payments.reduce((sum, p) => sum + parseFloat(p.paymentAmount || 0), 0);
@@ -60,8 +129,12 @@ export default function PaymentList() {
         await apiClient.delete(`/crm/payments/${payment.id}/`);
         setToast({ open: true, message: 'Payment deleted successfully.', severity: 'success' });
         refresh();
-      } catch (err) {
-        setToast({ open: true, message: 'Failed to delete payment.', severity: 'error' });
+      } catch (requestError) {
+        setToast({
+          open: true,
+          message: getApiErrorMessage(requestError, 'Failed to delete payment.'),
+          severity: 'error',
+        });
       }
     }
   };
@@ -107,6 +180,37 @@ export default function PaymentList() {
           onChange={(e) => applyFilter('end_date', e.target.value)}
           InputLabelProps={{ shrink: true }}
         />
+        <Autocomplete
+          size="small"
+          sx={{ minWidth: 220 }}
+          options={selectedMember && !members.some((member) => member.id === selectedMember.id)
+            ? [selectedMember, ...members]
+            : members}
+          value={selectedMember}
+          getOptionLabel={(member) => `${member.first_name} ${member.last_name}`}
+          isOptionEqualToValue={(option, value) => option.id === value.id}
+          onChange={(event, member) => {
+            setSelectedMember(member);
+            applyFilter('trainer', member?.id || '');
+          }}
+          onInputChange={(event, value) => setMemberSearch(value)}
+          renderInput={(params) => <TextField {...params} label={t('Trainee')} />}
+        />
+        <FormControl size="small" sx={{ minWidth: 130 }}>
+          <InputLabel>{t('List status')}</InputLabel>
+          <Select value={exportStatus} label={t('List status')} onChange={(event) => setExportStatus(event.target.value)}>
+            <MenuItem value="paid">{t('Paid')}</MenuItem>
+            <MenuItem value="unpaid">{t('Unpaid')}</MenuItem>
+          </Select>
+        </FormControl>
+        <Button
+          variant="outlined"
+          startIcon={exporting ? <CircularProgress size={18} /> : <DownloadIcon />}
+          disabled={exporting}
+          onClick={handleExport}
+        >
+          {t('Export Word')}
+        </Button>
         <Chip
           label={`${t('Page Total:')} ${pageTotal.toFixed(2)} MAD`}
           color="success"
@@ -115,6 +219,7 @@ export default function PaymentList() {
         />
       </Paper>
 
+      {exportError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setExportError('')}>{exportError}</Alert>}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       <TableContainer component={Paper} sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
@@ -161,6 +266,11 @@ export default function PaymentList() {
                     <Tooltip title={t('Delete Payment')}>
                       <IconButton size="small" color="error" onClick={() => handleDeleteClick(p)}>
                         <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={t('Download invoice')}>
+                      <IconButton size="small" color="primary" onClick={() => handleInvoiceDownload(p)}>
+                        <ReceiptIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                   </TableCell>

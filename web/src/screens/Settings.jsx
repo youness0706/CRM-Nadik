@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Typography, Paper, Box, Grid, TextField, Button, CircularProgress,
   Alert, Divider, Chip
@@ -23,6 +23,9 @@ export default function Settings() {
   const [organizationForm, setOrganizationForm] = useState({
     name: '', slug: '', description: '', email: '', phone_number: '', location: '',
   });
+  const [organizationLogo, setOrganizationLogo] = useState(null);
+  const [organizationLogoPreview, setOrganizationLogoPreview] = useState('');
+  const organizationLogoPreviewRef = useRef('');
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -52,6 +55,24 @@ export default function Settings() {
     loadProfile();
   }, []);
 
+  useEffect(() => () => {
+    if (organizationLogoPreviewRef.current) {
+      URL.revokeObjectURL(organizationLogoPreviewRef.current);
+    }
+  }, []);
+
+  const handleOrganizationLogoChange = (event) => {
+    const file = event.target.files?.[0] || null;
+    if (organizationLogoPreviewRef.current) {
+      URL.revokeObjectURL(organizationLogoPreviewRef.current);
+    }
+    const previewUrl = file ? URL.createObjectURL(file) : '';
+    organizationLogoPreviewRef.current = previewUrl;
+    setOrganizationLogo(file);
+    setOrganizationLogoPreview(previewUrl);
+    event.target.value = '';
+  };
+
   const handleProfileSave = async (event) => {
     event.preventDefault();
     setProfileSaving(true);
@@ -75,9 +96,22 @@ export default function Settings() {
     setError(null);
     setSuccess(null);
     try {
-      const response = await apiClient.patch('/auth/organization/', organizationForm);
+      const requestBody = organizationLogo ? new FormData() : organizationForm;
+      if (organizationLogo) {
+        Object.entries(organizationForm).forEach(([key, value]) => requestBody.append(key, value));
+        requestBody.append('logo', organizationLogo);
+      }
+      const response = await apiClient.patch('/auth/organization/', requestBody, organizationLogo
+        ? { headers: { 'Content-Type': 'multipart/form-data' } }
+        : undefined);
       const organization = response.data.data ?? response.data;
       setProfile((current) => ({ ...current, organization: { ...current.organization, ...organization } }));
+      if (organizationLogoPreviewRef.current) {
+        URL.revokeObjectURL(organizationLogoPreviewRef.current);
+        organizationLogoPreviewRef.current = '';
+      }
+      setOrganizationLogo(null);
+      setOrganizationLogoPreview('');
       setSuccess(t('Organization settings updated successfully.'));
     } catch (requestError) {
       setError(getApiErrorMessage(requestError, 'Failed to update organization settings.'));
@@ -191,6 +225,31 @@ export default function Settings() {
                 <TextField fullWidth size="small" label={t('Phone')} sx={{ mb: 2 }} value={organizationForm.phone_number} onChange={(event) => setOrganizationForm({ ...organizationForm, phone_number: event.target.value })} disabled={!profile.is_admin} />
                 <TextField fullWidth size="small" label={t('Location')} sx={{ mb: 2 }} value={organizationForm.location} onChange={(event) => setOrganizationForm({ ...organizationForm, location: event.target.value })} disabled={!profile.is_admin} />
                 <TextField fullWidth size="small" multiline minRows={2} label={t('Description')} sx={{ mb: 2 }} value={organizationForm.description} onChange={(event) => setOrganizationForm({ ...organizationForm, description: event.target.value })} disabled={!profile.is_admin} />
+                <Box sx={{ mb: 2 }}>
+                  {(organizationLogo || profile.organization.logo) && (
+                    <Box
+                      component="img"
+                      src={organizationLogoPreview || profile.organization.logo}
+                      alt={organizationForm.name}
+                      sx={{ display: 'block', maxWidth: 180, maxHeight: 100, objectFit: 'contain', mb: 1 }}
+                    />
+                  )}
+                  <Button component="label" variant="outlined" disabled={!profile.is_admin}>
+                    {t('Choose organization logo')}
+                    <input
+                      hidden
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handleOrganizationLogoChange}
+                    />
+                  </Button>
+                  {organizationLogo && (
+                    <Typography variant="caption" sx={{ ml: 1 }}>{organizationLogo.name}</Typography>
+                  )}
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    {t('PNG, JPG, or WebP; maximum 5 MB.')}
+                  </Typography>
+                </Box>
                 <Button type="submit" variant="outlined" disabled={!profile.is_admin || organizationSaving} startIcon={organizationSaving ? <CircularProgress size={18} /> : null}>
                   {t('Save organization')}
                 </Button>

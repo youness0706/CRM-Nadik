@@ -187,10 +187,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
         try:
             staff = Staff.objects.select_related('organization').get(user=obj)
             org = staff.organization
+            logo_url = org.logo.url if org.logo else None
+            request = self.context.get('request')
+            if logo_url and request:
+                logo_url = request.build_absolute_uri(logo_url)
             return {
                 'id': org.id,
                 'name': org.name,
                 'slug': org.slug,
+                'logo': logo_url,
                 'description': org.description,
                 'email': org.email,
                 'phone_number': org.phone_number,
@@ -220,7 +225,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class OrganizationSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrganizationInfo
-        fields = ['name', 'slug', 'description', 'email', 'phone_number', 'location']
+        fields = ['name', 'slug', 'logo', 'description', 'email', 'phone_number', 'location']
 
     def validate_slug(self, value):
         queryset = OrganizationInfo.objects.filter(slug=value)

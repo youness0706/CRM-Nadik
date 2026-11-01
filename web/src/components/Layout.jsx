@@ -80,7 +80,11 @@ export default function Layout({ children }) {
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>
       {/* Brand Header */}
       <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Avatar sx={{ bgcolor: 'primary.main', width: 44, height: 44, fontWeight: 'bold' }}>
+        <Avatar
+          src={profile?.organization?.logo || undefined}
+          alt={profile?.organization?.name || 'Nadik'}
+          sx={{ bgcolor: 'primary.main', width: 44, height: 44, fontWeight: 'bold' }}
+        >
           N
         </Avatar>
         <Box>

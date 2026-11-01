@@ -243,6 +243,7 @@ class OrganizationInfoAdmin(admin.ModelAdmin):
             'fields': (
                 'name',
                 'slug',
+                'logo',
                 'description',
                 'email',
                 'phone_number',

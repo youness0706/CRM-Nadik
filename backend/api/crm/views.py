@@ -3,15 +3,22 @@ from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.db.models import Sum, Count, Q, F, DecimalField
+from django.db.models import Sum, Count, Q, F, DecimalField, Exists, OuterRef
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.dateparse import parse_date
+from django.http import HttpResponse
 from datetime import datetime, timedelta
 import calendar
+from io import BytesIO
+from docx import Document
+from docx.shared import Inches
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 from trainers.models import (
     Staff, Trainer, Payments, Article, Costs, Addedpay, TrainerDocument, OrganizationInfo
 )
+from trainers.payments.invoice_views import download_payment_invoice
 from api.common.permissions import IsOrganizationActive
 from .serializers import (
     StaffSerializer, TrainerSerializer, TrainerCreateSerializer,
@@ -95,7 +102,7 @@ class PaymentViewSet(BaseOrganizationViewSet):
 
         # Filter by category
         cat = self.request.query_params.get('paymentCategry')
-        if cat:
+        if cat and cat != 'all':
             qs = qs.filter(paymentCategry=cat)
 
         # Filter by date range
@@ -112,6 +119,140 @@ class PaymentViewSet(BaseOrganizationViewSet):
             qs = qs.filter(trainer_id=trainer_id)
 
         return qs
+
+    @action(detail=False, methods=['get'], url_path='export/docx')
+    def export_docx(self, request):
+        organization = self.get_organization()
+        category = request.query_params.get('paymentCategry', 'all')
+        trainer_id = request.query_params.get('trainer')
+        status_filter = request.query_params.get('status', 'paid')
+
+        valid_categories = {value for value, _ in Payments.CatChoices}
+        if category != 'all' and category not in valid_categories:
+            return Response({'error': 'Invalid payment category.'}, status=status.HTTP_400_BAD_REQUEST)
+        if status_filter not in {'paid', 'unpaid'}:
+            return Response({'error': 'Status must be paid or unpaid.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        start_value = request.query_params.get('start_date')
+        end_value = request.query_params.get('end_date')
+        start_date = parse_date(start_value) if start_value else None
+        end_date = parse_date(end_value) if end_value else None
+        if (start_value and start_date is None) or (end_value and end_date is None):
+            return Response({'error': 'Dates must use YYYY-MM-DD format.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if status_filter == 'unpaid' and not start_date and not end_date:
+            today = timezone.localdate()
+            start_date = today.replace(day=1)
+            end_date = today.replace(day=calendar.monthrange(today.year, today.month)[1])
+
+        if start_date and end_date and start_date > end_date:
+            return Response({'error': 'From date must be on or before To date.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if status_filter == 'paid':
+            payments = Payments.objects.filter(organization=organization).select_related('trainer')
+            if category != 'all':
+                payments = payments.filter(paymentCategry=category)
+            if trainer_id:
+                payments = payments.filter(trainer_id=trainer_id)
+            if start_date:
+                payments = payments.filter(paymentdate__gte=start_date)
+            if end_date:
+                payments = payments.filter(paymentdate__lte=end_date)
+            records = list(payments.order_by('paymentdate', 'trainer__last_name', 'trainer__first_name'))
+        else:
+            trainers = Trainer.objects.filter(organization=organization, is_active=True)
+            if trainer_id:
+                trainers = trainers.filter(pk=trainer_id)
+            matching_payments = Payments.objects.filter(
+                organization=organization,
+                trainer_id=OuterRef('pk'),
+            )
+            if category != 'all':
+                matching_payments = matching_payments.filter(paymentCategry=category)
+            if start_date:
+                matching_payments = matching_payments.filter(paymentdate__gte=start_date)
+            if end_date:
+                matching_payments = matching_payments.filter(paymentdate__lte=end_date)
+            records = list(
+                trainers.annotate(has_matching_payment=Exists(matching_payments))
+                .filter(has_matching_payment=False)
+                .order_by('last_name', 'first_name')
+            )
+
+        document = Document()
+        section = document.sections[0]
+        section.top_margin = Inches(0.55)
+        section.bottom_margin = Inches(0.55)
+        section.left_margin = Inches(0.6)
+        section.right_margin = Inches(0.6)
+
+        if organization.logo:
+            with organization.logo.open('rb') as logo_file:
+                logo_paragraph = document.add_paragraph()
+                logo_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                logo_paragraph.add_run().add_picture(logo_file, width=Inches(1.25))
+
+        heading = document.add_paragraph()
+        heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        heading.add_run(organization.name).bold = True
+        title = document.add_paragraph()
+        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        title.add_run('Payment list').bold = True
+        document.add_paragraph(
+            f"Status: {'Unpaid' if status_filter == 'unpaid' else 'Paid'}"
+            f" | Category: {category if category != 'all' else 'All'}"
+        )
+        if start_date or end_date:
+            document.add_paragraph(
+                f"Period: {start_date or '—'} to {end_date or '—'}"
+            )
+
+        table = document.add_table(rows=1, cols=5)
+        table.style = 'Table Grid'
+        headers = ['#', 'Trainee', 'Payment type', 'Date', 'Amount (MAD)']
+        for cell, label in zip(table.rows[0].cells, headers):
+            cell.text = label
+
+        total_amount = 0
+        for index, record in enumerate(records, start=1):
+            row = table.add_row().cells
+            if status_filter == 'paid':
+                total_amount += record.paymentAmount
+                values = [
+                    str(index),
+                    record.trainer.full_name,
+                    record.get_paymentCategry_display(),
+                    record.paymentdate.isoformat(),
+                    f'{record.paymentAmount:.2f}',
+                ]
+            else:
+                values = [
+                    str(index),
+                    record.full_name,
+                    category if category != 'all' else 'All categories',
+                    '—',
+                    'Unpaid',
+                ]
+            for cell, value in zip(row, values):
+                cell.text = str(value)
+
+        if status_filter == 'paid':
+            document.add_paragraph(f'Total: {total_amount:.2f} MAD')
+        document.add_paragraph(f'Trainees/payments: {len(records)}')
+
+        output = BytesIO()
+        document.save(output)
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        )
+        response['Content-Disposition'] = 'attachment; filename="nadik-payment-list.docx"'
+        return response
+
+    @action(detail=True, methods=['get'], url_path='invoice')
+    def invoice(self, request, pk=None):
+        payment = self.get_object()
+        return download_payment_invoice(request, payment.pk)
 
 
 class ArticleViewSet(BaseOrganizationViewSet):

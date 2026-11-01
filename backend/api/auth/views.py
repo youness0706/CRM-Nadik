@@ -196,6 +196,7 @@ class OrganizationSettingsView(APIView):
             staff.organization,
             data=request.data,
             partial=True,
+            context={'request': request},
         )
         if not serializer.is_valid():
             return Response(

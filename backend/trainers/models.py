@@ -11,12 +11,30 @@ from dateutil.relativedelta import relativedelta
 from django.core.validators import FileExtensionValidator
 
 
+def organization_logo_upload_to(instance, filename):
+    extension = os.path.splitext(filename)[1].lower()
+    return f"organizations/{instance.slug}/logo{extension}"
+
+
+def validate_organization_logo_size(value):
+    max_size = 5 * 1024 * 1024
+    if value.size > max_size:
+        raise ValidationError("Logo must be 5 MB or smaller.")
 
 
 class OrganizationInfo(models.Model):
     """Main organization/tenant model"""
     name = models.CharField(max_length=255, verbose_name='اسم الجمعية')
     slug = models.SlugField(unique=True, verbose_name='المعرف')
+    logo = models.ImageField(
+        upload_to=organization_logo_upload_to,
+        blank=True,
+        validators=[
+            FileExtensionValidator(['jpg', 'jpeg', 'png', 'webp']),
+            validate_organization_logo_size,
+        ],
+        verbose_name='شعار الجمعية',
+    )
     description = models.TextField(blank=True, verbose_name='الوصف')
     established_date = models.DateField(blank=True, null=True, verbose_name='تاريخ التأسيس')
     rent_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='مبلغ الإيجار')
