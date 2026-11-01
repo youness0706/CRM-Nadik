@@ -166,6 +166,8 @@ CSRF_TRUSTED_ORIGINS = [
     ).split(",")
     if origin.strip()
 ]
+if "https://crm-nadik-duge.vercel.app" not in CSRF_TRUSTED_ORIGINS:
+    CSRF_TRUSTED_ORIGINS.append("https://crm-nadik-duge.vercel.app")
 
 # CORS — configured per environment
 CORS_ALLOWED_ORIGINS = [
@@ -176,6 +178,8 @@ CORS_ALLOWED_ORIGINS = [
     ).split(",")
     if origin.strip()
 ]
+if "https://crm-nadik-duge.vercel.app" not in CORS_ALLOWED_ORIGINS:
+    CORS_ALLOWED_ORIGINS.append("https://crm-nadik-duge.vercel.app")
 CORS_ALLOW_CREDENTIALS = True
 
 # Django REST Framework
