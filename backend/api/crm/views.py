@@ -12,8 +12,11 @@ from datetime import datetime, timedelta
 import calendar
 from io import BytesIO
 from docx import Document
-from docx.shared import Inches
+from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 
 from trainers.models import (
     Staff, Trainer, Payments, Article, Costs, Addedpay, TrainerDocument, OrganizationInfo
@@ -186,32 +189,98 @@ class PaymentViewSet(BaseOrganizationViewSet):
         section.left_margin = Inches(0.6)
         section.right_margin = Inches(0.6)
 
+        def set_arabic_paragraph(paragraph, alignment=WD_ALIGN_PARAGRAPH.RIGHT):
+            paragraph.alignment = alignment
+            paragraph_properties = paragraph._p.get_or_add_pPr()
+            bidi = OxmlElement('w:bidi')
+            bidi.set(qn('w:val'), '1')
+            paragraph_properties.append(bidi)
+
+        def set_arabic_run(run, *, bold=False, size=11, color=None):
+            run.bold = bold
+            run.font.name = 'Arial'
+            run.font.size = Pt(size)
+            if color:
+                run.font.color.rgb = RGBColor(*color)
+            run_properties = run._element.get_or_add_rPr()
+            fonts = run_properties.rFonts
+            if fonts is None:
+                fonts = OxmlElement('w:rFonts')
+                run_properties.insert(0, fonts)
+            fonts.set(qn('w:ascii'), 'Arial')
+            fonts.set(qn('w:hAnsi'), 'Arial')
+            fonts.set(qn('w:cs'), 'Arial')
+            rtl = OxmlElement('w:rtl')
+            rtl.set(qn('w:val'), '1')
+            run_properties.append(rtl)
+
+        def set_cell_fill(cell, fill):
+            cell_properties = cell._tc.get_or_add_tcPr()
+            shading = OxmlElement('w:shd')
+            shading.set(qn('w:fill'), fill)
+            cell_properties.append(shading)
+
+        def set_repeat_table_header(row):
+            row_properties = row._tr.get_or_add_trPr()
+            repeat = OxmlElement('w:tblHeader')
+            repeat.set(qn('w:val'), 'true')
+            row_properties.append(repeat)
+
         if organization.logo:
             with organization.logo.open('rb') as logo_file:
                 logo_paragraph = document.add_paragraph()
-                logo_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                set_arabic_paragraph(logo_paragraph, WD_ALIGN_PARAGRAPH.CENTER)
                 logo_paragraph.add_run().add_picture(logo_file, width=Inches(1.25))
 
         heading = document.add_paragraph()
-        heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        heading.add_run(organization.name).bold = True
-        title = document.add_paragraph()
-        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        title.add_run('Payment list').bold = True
-        document.add_paragraph(
-            f"Status: {'Unpaid' if status_filter == 'unpaid' else 'Paid'}"
-            f" | Category: {category if category != 'all' else 'All'}"
+        set_arabic_paragraph(heading, WD_ALIGN_PARAGRAPH.CENTER)
+        set_arabic_run(heading.add_run(organization.name), bold=True, size=18, color=(44, 62, 80))
+
+        category_label = (
+            dict(Payments.CatChoices).get(category, 'جميع الفئات')
+            if category != 'all' else 'جميع الفئات'
         )
+        status_label = 'لائحة الأداءات المسجلة' if status_filter == 'paid' else 'لائحة غير المؤدين'
+        title = document.add_paragraph()
+        set_arabic_paragraph(title, WD_ALIGN_PARAGRAPH.CENTER)
+        set_arabic_run(title.add_run(status_label), bold=True, size=15, color=(60, 120, 231))
+
+        category_paragraph = document.add_paragraph()
+        set_arabic_paragraph(category_paragraph)
+        set_arabic_run(category_paragraph.add_run(f'نوع الأداء: {category_label}'), bold=True)
+
         if start_date or end_date:
-            document.add_paragraph(
-                f"Period: {start_date or '—'} to {end_date or '—'}"
+            period_paragraph = document.add_paragraph()
+            set_arabic_paragraph(period_paragraph)
+            set_arabic_run(
+                period_paragraph.add_run(
+                    f'الفترة: {start_date.strftime("%Y/%m/%d") if start_date else "—"}'
+                    f' إلى {end_date.strftime("%Y/%m/%d") if end_date else "—"}'
+                ),
             )
 
-        table = document.add_table(rows=1, cols=5)
+        table = document.add_table(rows=1, cols=7)
         table.style = 'Table Grid'
-        headers = ['#', 'Trainee', 'Payment type', 'Date', 'Amount (MAD)']
+        table_properties = table._tbl.tblPr
+        table_direction = OxmlElement('w:bidiVisual')
+        table_direction.set(qn('w:val'), '1')
+        table_properties.append(table_direction)
+        headers = [
+            'الترتيب',
+            'النسب',
+            'الاسم الشخصي',
+            'رقم البطاقة الوطنية',
+            'تاريخ الازدياد',
+            'تاريخ الأداء',
+            'المبلغ (درهم)',
+        ]
         for cell, label in zip(table.rows[0].cells, headers):
-            cell.text = label
+            cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+            set_cell_fill(cell, '2C3E50')
+            paragraph = cell.paragraphs[0]
+            set_arabic_paragraph(paragraph, WD_ALIGN_PARAGRAPH.CENTER)
+            set_arabic_run(paragraph.add_run(label), bold=True, size=9, color=(255, 255, 255))
+        set_repeat_table_header(table.rows[0])
 
         total_amount = 0
         for index, record in enumerate(records, start=1):
@@ -220,25 +289,36 @@ class PaymentViewSet(BaseOrganizationViewSet):
                 total_amount += record.paymentAmount
                 values = [
                     str(index),
-                    record.trainer.full_name,
-                    record.get_paymentCategry_display(),
-                    record.paymentdate.isoformat(),
+                    record.trainer.last_name,
+                    record.trainer.first_name,
+                    record.trainer.CIN or '—',
+                    record.trainer.birth_day.strftime('%Y/%m/%d'),
+                    record.paymentdate.strftime('%Y/%m/%d'),
                     f'{record.paymentAmount:.2f}',
                 ]
             else:
                 values = [
                     str(index),
-                    record.full_name,
-                    category if category != 'all' else 'All categories',
+                    record.last_name,
+                    record.first_name,
+                    record.CIN or '—',
+                    record.birth_day.strftime('%Y/%m/%d'),
                     '—',
-                    'Unpaid',
+                    'غير مدفوع',
                 ]
             for cell, value in zip(row, values):
-                cell.text = str(value)
+                cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+                paragraph = cell.paragraphs[0]
+                set_arabic_paragraph(paragraph, WD_ALIGN_PARAGRAPH.CENTER)
+                set_arabic_run(paragraph.add_run(str(value)), size=9)
 
+        summary = document.add_paragraph()
+        set_arabic_paragraph(summary)
         if status_filter == 'paid':
-            document.add_paragraph(f'Total: {total_amount:.2f} MAD')
-        document.add_paragraph(f'Trainees/payments: {len(records)}')
+            set_arabic_run(summary.add_run(f'مجموع الأداءات: {total_amount:.2f} درهم'), bold=True)
+        count_paragraph = document.add_paragraph()
+        set_arabic_paragraph(count_paragraph)
+        set_arabic_run(count_paragraph.add_run(f'عدد السجلات: {len(records)}'))
 
         output = BytesIO()
         document.save(output)
@@ -246,7 +326,9 @@ class PaymentViewSet(BaseOrganizationViewSet):
             output.getvalue(),
             content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         )
-        response['Content-Disposition'] = 'attachment; filename="nadik-payment-list.docx"'
+        response['Content-Disposition'] = (
+            f'attachment; filename="nadik-payments-{status_filter}-{category}.docx"'
+        )
         return response
 
     @action(detail=True, methods=['get'], url_path='invoice')

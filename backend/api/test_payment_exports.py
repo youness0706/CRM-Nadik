@@ -3,6 +3,7 @@ from io import BytesIO
 import tempfile
 
 from docx import Document
+from docx.oxml.ns import qn
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -69,9 +70,16 @@ class PaymentExportApiTests(TestCase):
             for row in table.rows
             for cell in row.cells
         )
-        self.assertIn('Amina North', content)
+        self.assertIn('Amina', content)
+        self.assertIn('North', content)
         self.assertNotIn('Sara North', content)
         self.assertIn('150.00', content)
+        self.assertIn('الاسم الشخصي', content)
+        self.assertIn('تاريخ الأداء', content)
+        self.assertIn('نوع الأداء: شهرية', ' '.join(
+            paragraph.text for paragraph in document.paragraphs
+        ))
+        self.assertIsNotNone(document.tables[0]._tbl.tblPr.find(qn('w:bidiVisual')))
 
     def test_unpaid_export_uses_selected_period_and_category(self):
         response = self.client.get('/api/v1/crm/payments/export/docx/', {
@@ -89,8 +97,9 @@ class PaymentExportApiTests(TestCase):
             for row in table.rows
             for cell in row.cells
         )
-        self.assertIn('Sara North', content)
-        self.assertNotIn('Amina North', content)
+        self.assertIn('Sara', content)
+        self.assertIn('غير مدفوع', content)
+        self.assertNotIn('Amina', content)
 
     def test_invoice_download_is_available_for_organization_payment(self):
         response = self.client.get(f'/api/v1/crm/payments/{self.payment.pk}/invoice/')
