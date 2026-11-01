@@ -162,7 +162,7 @@ CSRF_TRUSTED_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
         "CSRF_TRUSTED_ORIGINS",
-        "http://localhost:8000,http://127.0.0.1:8000"
+        "http://localhost:8000,http://127.0.0.1:8000,https://crm-nadik-duge.vercel.app"
     ).split(",")
     if origin.strip()
 ]
@@ -170,7 +170,10 @@ CSRF_TRUSTED_ORIGINS = [
 # CORS — configured per environment
 CORS_ALLOWED_ORIGINS = [
     origin.strip()
-    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+    for origin in os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "https://crm-nadik-duge.vercel.app",
+    ).split(",")
     if origin.strip()
 ]
 CORS_ALLOW_CREDENTIALS = True
