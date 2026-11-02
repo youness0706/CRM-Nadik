@@ -9,10 +9,13 @@ https://docs.djangoproject.com/en/5.1/howto/deployment/asgi/
 
 import os
 
-import pymysql
+try:
+    import MySQLdb  # noqa: F401
+except ImportError:
+    import pymysql
 
-# Django's MySQL backend imports MySQLdb; Vercel uses the pure-Python driver.
-pymysql.install_as_MySQLdb()
+    # Vercel does not provide native MySQLdb, so use the pure-Python driver.
+    pymysql.install_as_MySQLdb()
 
 from django.core.asgi import get_asgi_application
 
