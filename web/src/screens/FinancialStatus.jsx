@@ -21,36 +21,74 @@ function DonutBreakdown({ title, items, total, colors, emptyLabel, t }) {
     offset += (item.value / (total || 1)) * 100;
     return `${colors[index % colors.length]} ${start}% ${offset}%`;
   });
-  const background = stops.length ? `conic-gradient(${stops.join(', ')})` : '#e6ebee';
+  const background = stops.length ? `conic-gradient(${stops.join(', ')})` : '#e0e8ee';
 
   return (
-    <Paper sx={{ p: 2.5, height: '100%', minWidth: 0, border: '1px solid', borderColor: 'divider', borderRadius: 1, boxShadow: 'none' }}>
+    <Paper sx={{ p: { xs: 2, sm: 2.5 }, height: '100%', minWidth: 0, border: '1px solid', borderColor: 'divider', borderRadius: 2, boxShadow: 'none' }}>
       <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>{title}</Typography>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: '140px minmax(0, 1fr)' }, gap: 2, alignItems: 'center', minWidth: 0 }}>
-        <Box role="img" aria-label={`${title}: ${total.toFixed(2)} MAD`} sx={{ width: '100%', maxWidth: 140, aspectRatio: '1', borderRadius: '50%', background, display: 'grid', placeItems: 'center', mx: 'auto' }}>
-          <Box sx={{ width: '62%', aspectRatio: '1', borderRadius: '50%', bgcolor: 'background.paper', display: 'grid', alignContent: 'center', textAlign: 'center', px: 0.5 }}>
-            <Typography variant="caption" color="text.secondary">{t('Total')}</Typography>
-            <Typography variant="body2" fontWeight={700}>{total.toFixed(0)}</Typography>
-            <Typography variant="caption" color="text.secondary">MAD</Typography>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2.5, alignItems: { xs: 'center', sm: 'center' }, minWidth: 0 }}>
+        {/* Donut */}
+        <Box
+          role="img"
+          aria-label={`${title}: ${total.toFixed(2)} MAD`}
+          sx={{
+            width: { xs: 130, sm: 148 },
+            height: { xs: 130, sm: 148 },
+            borderRadius: '50%',
+            background,
+            display: 'grid',
+            placeItems: 'center',
+            flexShrink: 0,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+          }}
+        >
+          <Box sx={{
+            width: '60%', aspectRatio: '1', borderRadius: '50%',
+            bgcolor: 'background.paper',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 0 0 3px rgba(255,255,255,0.7)',
+          }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.62rem', fontWeight: 600, letterSpacing: 0.3 }}>
+              {t('Total')}
+            </Typography>
+            <Typography variant="body2" fontWeight={800} sx={{ fontSize: '0.85rem', lineHeight: 1.1 }}>
+              {total.toFixed(0)}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>DH</Typography>
           </Box>
         </Box>
-        <Box sx={{ display: 'grid', gap: 1, minWidth: 0 }}>
+
+        {/* Legend */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, width: '100%' }}>
           {items.map((item, index) => {
             const share = total > 0 ? (item.value / total) * 100 : 0;
+            const barW = share > 0 ? Math.max(4, share) : 0;
             return (
               <Box key={item.label}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, alignItems: 'center' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, mb: 0.25 }}>
                   <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', minWidth: 0 }}>
-                    <Box aria-hidden="true" sx={{ width: 9, height: 9, bgcolor: colors[index % colors.length], borderRadius: '2px', flexShrink: 0 }} />
-                    <Typography variant="body2" noWrap>{t(item.label)}</Typography>
+                    <Box sx={{ width: 10, height: 10, bgcolor: colors[index % colors.length], borderRadius: '3px', flexShrink: 0 }} />
+                    <Typography variant="body2" noWrap fontWeight={500} sx={{ fontSize: '0.82rem' }}>{t(item.label)}</Typography>
                   </Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>{share.toFixed(0)}%</Typography>
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexShrink: 0 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem' }}>
+                      {item.value.toFixed(0)} DH
+                    </Typography>
+                    <Typography variant="caption" fontWeight={700} sx={{ color: colors[index % colors.length], fontSize: '0.72rem', minWidth: 28 }}>
+                      {share.toFixed(0)}%
+                    </Typography>
+                  </Box>
                 </Box>
-                <Typography variant="caption" color="text.secondary" sx={{ pl: 2 }}>{item.value.toFixed(2)} MAD</Typography>
+                {/* Mini bar */}
+                <Box sx={{ height: 4, borderRadius: 2, bgcolor: '#e8eef3', overflow: 'hidden', ml: 2.25 }}>
+                  <Box sx={{ width: `${barW}%`, height: '100%', bgcolor: colors[index % colors.length], borderRadius: 2, transition: 'width 0.5s ease' }} />
+                </Box>
               </Box>
             );
           })}
-          {!nonzeroItems.length && <Typography variant="body2" color="text.secondary">{emptyLabel}</Typography>}
+          {!nonzeroItems.length && (
+            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>{emptyLabel}</Typography>
+          )}
         </Box>
       </Box>
     </Paper>

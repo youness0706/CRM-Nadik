@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, Button, Box, Chip, CircularProgress, TablePagination,
-  IconButton, Tooltip, Snackbar, Alert
+  IconButton, Tooltip, Snackbar, Alert, Card, CardContent, useMediaQuery, useTheme, Stack
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -14,8 +14,11 @@ import { useLanguage } from '../state/LanguageContext';
 
 export default function StaffList() {
   const { t } = useLanguage();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
 
   const {
@@ -43,13 +46,17 @@ export default function StaffList() {
   };
 
   const handleDeleteClick = async (s) => {
-    if (window.confirm(`Are you sure you want to delete staff member ${s.username}?`)) {
+    if (deletingId === s.id) return;
+    if (window.confirm(`${t('Delete Staff')}?\n${s.username}`)) {
+      setDeletingId(s.id);
       try {
         await apiClient.delete(`/crm/staff/${s.id}/`);
         setToast({ open: true, message: t('Staff deleted successfully.'), severity: 'success' });
         refresh();
       } catch (err) {
         setToast({ open: true, message: err.response?.data?.detail || t('Failed to delete staff.'), severity: 'error' });
+      } finally {
+        setDeletingId(null);
       }
     }
   };
@@ -62,91 +69,160 @@ export default function StaffList() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, mb: 2.5 }}>
         <Typography variant="h4" fontWeight="bold">{t('Staff')}</Typography>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
-          <Chip label={`${t('Page Salaries:')} ${pageTotalSalaries.toFixed(2)} MAD`} color="info" variant="outlined" />
-          <Button variant="contained" startIcon={<AddIcon />} size="large" onClick={handleAddClick}>{t('Add Staff')}</Button>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Chip label={`${t('Page Salaries:')} ${pageTotalSalaries.toFixed(2)} DH`} color="info" variant="outlined" sx={{ fontWeight: 600 }} />
+          <Button variant="contained" startIcon={<AddIcon />} size={isMobile ? 'medium' : 'large'} onClick={handleAddClick}>{t('Add Staff')}</Button>
         </Box>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
 
-      <TableContainer component={Paper} sx={{ width: '100%', maxWidth: '100%', minWidth: 0, overflowX: 'auto', borderRadius: 2, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
-        <Table>
-          <TableHead>
-            <TableRow sx={{ backgroundColor: 'background.default' }}>
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('Username')}</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('Name')}</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('Role')}</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('Admin')}</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('Phone')}</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('Salary (MAD)')}</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('Started')}</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>{t('Last Salary Payment')}</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', textAlign: 'right' }}>{t('Actions')}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
-                  <CircularProgress />
-                </TableCell>
+      {isMobile ? (
+        <Box>
+          {loading ? (
+            <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress /></Box>
+          ) : staff.length === 0 ? (
+            <Paper sx={{ textAlign: 'center', py: 6, borderRadius: 2 }}><Typography color="text.secondary">{t('No staff members found.')}</Typography></Paper>
+          ) : (
+            <Stack spacing={1.5}>
+              {staff.map((s) => (
+                <Card key={s.id} sx={{ borderRadius: 2.5, boxShadow: '0 1px 6px rgba(0,0,0,0.07)' }}>
+                  <CardContent sx={{ p: '14px 16px !important' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                      <Box>
+                        <Typography fontWeight={700} sx={{ fontSize: '0.95rem' }}>{s.first_name} {s.last_name} ({s.username})</Typography>
+                        <Typography variant="body2" color="text.secondary">{s.role || '—'} • {s.phone_number || '—'}</Typography>
+                      </Box>
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Typography variant="subtitle1" fontWeight={800} color="primary.main">
+                          {parseFloat(s.salary).toFixed(2)} DH
+                        </Typography>
+                        <Chip
+                          label={s.is_admin ? t('Admin') : t('Staff')}
+                          color={s.is_admin ? 'primary' : 'default'}
+                          size="small"
+                          sx={{ borderRadius: 1, fontSize: '0.7rem', height: 20 }}
+                        />
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1, mt: 1.5, justifyContent: 'flex-end', borderTop: '1px solid', borderColor: 'divider', pt: 1 }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="primary"
+                        startIcon={<EditIcon fontSize="small" />}
+                        onClick={() => handleEditClick(s)}
+                        sx={{ minHeight: 32, borderRadius: 1.5 }}
+                      >
+                        {t('Edit')}
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="error"
+                        startIcon={deletingId === s.id ? <CircularProgress size={14} color="inherit" /> : <DeleteIcon fontSize="small" />}
+                        onClick={() => handleDeleteClick(s)}
+                        disabled={deletingId === s.id}
+                        sx={{ minHeight: 32, borderRadius: 1.5 }}
+                      >
+                        {t('Delete Staff')}
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          )}
+          <TablePagination
+            component="div"
+            count={totalCount}
+            page={page}
+            onPageChange={handlePageChange}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={handleRowsPerPageChange}
+            rowsPerPageOptions={[10, 25, 50]}
+            sx={{ mt: 1 }}
+          />
+        </Box>
+      ) : (
+        <TableContainer component={Paper} sx={{ width: '100%', maxWidth: '100%', minWidth: 0, overflowX: 'auto', borderRadius: 2, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+          <Table>
+            <TableHead>
+              <TableRow sx={{ backgroundColor: 'background.default' }}>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('Username')}</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('Name')}</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('Role')}</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('Admin')}</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('Phone')}</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('Salary (MAD)')}</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('Started')}</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>{t('Last Salary Payment')}</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', textAlign: 'right' }}>{t('Actions')}</TableCell>
               </TableRow>
-            ) : staff.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
-                  <Typography color="text.secondary">{t('No staff members found.')}</Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              staff.map((s) => (
-                <TableRow key={s.id} hover>
-                  <TableCell sx={{ fontWeight: 500 }}>{s.username}</TableCell>
-                  <TableCell>{s.first_name} {s.last_name}</TableCell>
-                  <TableCell>{s.role}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={s.is_admin ? t('Admin') : t('Staff')}
-                      color={s.is_admin ? 'primary' : 'default'}
-                      size="small"
-                      sx={{ borderRadius: 1 }}
-                    />
-                  </TableCell>
-                  <TableCell>{s.phone_number || '—'}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>{parseFloat(s.salary).toFixed(2)} DH</TableCell>
-                  <TableCell>{s.started}</TableCell>
-                  <TableCell>{s.datepay || '—'}</TableCell>
-                  <TableCell align="right">
-                    <Tooltip title={t('Edit Staff')}>
-                      <IconButton size="small" color="primary" onClick={() => handleEditClick(s)}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title={t('Delete Staff')}>
-                      <IconButton size="small" color="error" onClick={() => handleDeleteClick(s)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                    <CircularProgress />
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-        <TablePagination
-          component="div"
-          count={totalCount}
-          page={page}
-          onPageChange={handlePageChange}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={handleRowsPerPageChange}
-          rowsPerPageOptions={[10, 25, 50, 100]}
-          labelRowsPerPage={t('Rows per page:')}
-          labelDisplayedRows={({ from, to, count }) => `${from}–${to} ${t('of')} ${count === -1 ? `${t('more than')} ${to}` : count}`}
-        />
-      </TableContainer>
+              ) : staff.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                    <Typography color="text.secondary">{t('No staff members found.')}</Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                staff.map((s) => (
+                  <TableRow key={s.id} hover>
+                    <TableCell sx={{ fontWeight: 500 }}>{s.username}</TableCell>
+                    <TableCell>{s.first_name} {s.last_name}</TableCell>
+                    <TableCell>{s.role}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={s.is_admin ? t('Admin') : t('Staff')}
+                        color={s.is_admin ? 'primary' : 'default'}
+                        size="small"
+                        sx={{ borderRadius: 1 }}
+                      />
+                    </TableCell>
+                    <TableCell>{s.phone_number || '—'}</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>{parseFloat(s.salary).toFixed(2)} DH</TableCell>
+                    <TableCell>{s.started}</TableCell>
+                    <TableCell>{s.datepay || '—'}</TableCell>
+                    <TableCell align="right">
+                      <Tooltip title={t('Edit Staff')}>
+                        <IconButton size="small" color="primary" onClick={() => handleEditClick(s)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title={t('Delete Staff')}>
+                        <IconButton size="small" color="error" onClick={() => handleDeleteClick(s)} disabled={deletingId === s.id}>
+                          {deletingId === s.id ? <CircularProgress size={14} /> : <DeleteIcon fontSize="small" />}
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+          <TablePagination
+            component="div"
+            count={totalCount}
+            page={page}
+            onPageChange={handlePageChange}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={handleRowsPerPageChange}
+            rowsPerPageOptions={[10, 25, 50, 100]}
+            labelRowsPerPage={t('Rows per page:')}
+            labelDisplayedRows={({ from, to, count }) => `${from}–${to} ${t('of')} ${count === -1 ? `${t('more than')} ${to}` : count}`}
+          />
+        </TableContainer>
+      )}
 
       <StaffDialog
         open={dialogOpen}
@@ -161,7 +237,7 @@ export default function StaffList() {
         onClose={() => setToast({ ...toast, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={() => setToast({ ...toast, open: false })} severity={toast.severity} sx={{ width: '100%' }}>
+        <Alert onClose={() => setToast({ ...toast, open: false })} severity={toast.severity} sx={{ width: '100%', borderRadius: 2 }}>
           {toast.message}
         </Alert>
       </Snackbar>

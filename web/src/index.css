@@ -1,22 +1,39 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap');
 
-body {
-  margin: 0;
-  padding: 0;
-  font-family: 'DM Sans', 'Noto Sans Arabic', sans-serif;
-  background-color: #f4f6f8;
-  color: #1c242c;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
+:root {
+  --primary: #006064;
+  --primary-dark: #00363a;
+  --primary-light: #428e92;
+  --secondary: #ff6f00;
+  --bg-default: #f0f4f8;
+  --bg-paper: #ffffff;
+  --text-primary: #1c242c;
+  --text-secondary: #5c6e81;
+  --radius: 12px;
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.07);
+  --shadow-md: 0 4px 16px rgba(0,96,100,0.10);
 }
 
-html,
-body,
-#root {
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body, #root {
   width: 100%;
   max-width: 100%;
   min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'DM Sans', 'Noto Sans Arabic', sans-serif;
+  background-color: var(--bg-default);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 #root > div {
@@ -24,20 +41,45 @@ body,
   max-width: 100%;
 }
 
-* {
-  box-sizing: border-box;
-}
-
-/* Remove default Vite links and button styles to avoid conflicting with MUI */
 a {
   text-decoration: none;
   color: inherit;
 }
 
+/* Arabic RTL global */
 html[dir='rtl'] body {
   direction: rtl;
 }
 
+/* Arabic input text alignment fix */
+html[dir='rtl'] input,
+html[dir='rtl'] textarea {
+  text-align: right;
+  direction: rtl;
+  font-family: 'Noto Sans Arabic', 'DM Sans', sans-serif;
+}
+
+html[dir='rtl'] .MuiInputBase-input {
+  text-align: right;
+  direction: rtl;
+}
+
+html[dir='rtl'] .MuiInputLabel-root {
+  right: 28px;
+  left: auto;
+  transform-origin: right;
+}
+
+html[dir='rtl'] .MuiOutlinedInput-notchedOutline legend {
+  text-align: right;
+}
+
+/* Scrollbar - slim & styled */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #c0cdd8; border-radius: 10px; }
+
+/* Mobile overrides */
 @media (max-width: 599.95px) {
   html[dir='rtl'] .MuiDrawer-paper {
     right: 0;
@@ -46,10 +88,38 @@ html[dir='rtl'] body {
 
   .MuiTableContainer-root {
     max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .MuiDialog-paper {
-    max-width: calc(100% - 24px);
-    margin: 12px;
+    max-width: calc(100% - 16px) !important;
+    margin: 8px !important;
+    border-radius: 16px !important;
   }
+
+  /* Make tables scrollable on mobile */
+  .mobile-scroll-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Tighter padding on mobile cards */
+  .MuiCardContent-root:last-child {
+    padding-bottom: 12px !important;
+  }
+}
+
+/* Button active feedback */
+.MuiButtonBase-root:active {
+  transform: scale(0.97);
+  transition: transform 0.1s ease;
+}
+
+/* Disabled button visual */
+.MuiButton-root:disabled,
+.MuiIconButton-root:disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  pointer-events: auto !important;
 }

@@ -89,7 +89,7 @@ export default function PaymentDialog({ open, onClose, payment = null, onSuccess
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="sm" fullWidth>
       <form onSubmit={handleSubmit}>
         <DialogTitle>{payment ? t('Edit Payment') : t('Record Payment')}</DialogTitle>
         <DialogContent dividers>
@@ -127,10 +127,16 @@ export default function PaymentDialog({ open, onClose, payment = null, onSuccess
             </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={onClose} disabled={loading}>{t('Cancel')}</Button>
-          <Button type="submit" variant="contained" disabled={loading} startIcon={loading ? <CircularProgress size={20} /> : null}>
-            {payment ? t('Save Changes') : t('Record Payment')}
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={onClose} disabled={loading} variant="outlined">{t('Cancel')}</Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={18} color="inherit" /> : null}
+            sx={{ minWidth: 130 }}
+          >
+            {loading ? '...' : (payment ? t('Save Changes') : t('Record Payment'))}
           </Button>
         </DialogActions>
       </form>

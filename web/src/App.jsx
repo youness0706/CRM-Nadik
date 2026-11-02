@@ -23,28 +23,23 @@ import { LanguageProvider } from './state/LanguageContext';
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#006064', // Deep Trustworthy Teal for Nadik
+      main: '#006064',
       light: '#428e92',
       dark: '#00363a',
       contrastText: '#ffffff',
     },
     secondary: {
-      main: '#ff6f00', // Amber/Orange Accent
+      main: '#ff6f00',
       light: '#ffa040',
       dark: '#c43e00',
       contrastText: '#ffffff',
     },
-    success: {
-      main: '#2e7d32',
-    },
-    error: {
-      main: '#c62828',
-    },
-    warning: {
-      main: '#f57f17',
-    },
+    success: { main: '#2e7d32', light: '#e8f5e9' },
+    error: { main: '#c62828', light: '#ffebee' },
+    warning: { main: '#f57f17', light: '#fff8e1' },
+    info: { main: '#0288d1', light: '#e1f5fe' },
     background: {
-      default: '#f4f6f8',
+      default: '#f0f4f8',
       paper: '#ffffff',
     },
     text: {
@@ -54,46 +49,55 @@ const theme = createTheme({
   },
   typography: {
     fontFamily: '"DM Sans", "Noto Sans Arabic", sans-serif',
-    h4: {
-      fontWeight: 700,
-      letterSpacing: 0,
-    },
-    h5: {
-      fontWeight: 600,
-      letterSpacing: 0,
-    },
-    button: {
-      fontWeight: 600,
-      textTransform: 'none',
-    },
+    h4: { fontWeight: 700, letterSpacing: 0, fontSize: 'clamp(1.4rem, 5vw, 2rem)' },
+    h5: { fontWeight: 600, letterSpacing: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)' },
+    h6: { fontWeight: 600, letterSpacing: 0 },
+    button: { fontWeight: 600, textTransform: 'none', letterSpacing: 0 },
+    body2: { fontSize: '0.875rem' },
+    caption: { fontSize: '0.78rem' },
   },
-  shape: {
-    borderRadius: 8,
-  },
+  shape: { borderRadius: 12 },
   components: {
     MuiButton: {
+      defaultProps: { disableElevation: true },
       styleOverrides: {
         root: {
+          borderRadius: 10,
           boxShadow: 'none',
-          '&:hover': {
-            boxShadow: '0px 2px 4px rgba(0,0,0,0.1)',
-          },
+          minHeight: 42,
+          '&:hover': { boxShadow: '0px 2px 8px rgba(0,96,100,0.15)' },
+          '&:active': { transform: 'scale(0.97)' },
+          transition: 'transform 0.1s ease, box-shadow 0.2s ease',
+        },
+        sizeLarge: { minHeight: 48, fontSize: '1rem' },
+        sizeSmall: { minHeight: 34, fontSize: '0.8rem' },
+      },
+    },
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          '&:active': { transform: 'scale(0.9)' },
+          transition: 'transform 0.1s ease',
         },
       },
     },
     MuiCard: {
       styleOverrides: {
         root: {
-          boxShadow: '0px 2px 8px rgba(0,0,0,0.04)',
-          border: '1px solid #e0e5ea',
+          boxShadow: '0px 2px 12px rgba(0,0,0,0.05)',
+          border: '1px solid #e2e8f0',
+          borderRadius: 14,
+          transition: 'box-shadow 0.2s ease',
         },
       },
     },
     MuiPaper: {
       styleOverrides: {
         root: {
-          boxShadow: '0px 2px 8px rgba(0,0,0,0.04)',
+          boxShadow: '0px 1px 6px rgba(0,0,0,0.05)',
+          borderRadius: 12,
         },
+        elevation1: { boxShadow: '0px 2px 8px rgba(0,0,0,0.06)' },
       },
     },
     MuiTableCell: {
@@ -103,10 +107,50 @@ const theme = createTheme({
           backgroundColor: '#f8fafc',
           color: '#475569',
           borderBottom: '2px solid #e2e8f0',
+          whiteSpace: 'nowrap',
         },
         root: {
           borderBottom: '1px solid #e2e8f0',
+          padding: '10px 16px',
         },
+      },
+    },
+    MuiTextField: {
+      defaultProps: { variant: 'outlined' },
+      styleOverrides: {
+        root: { borderRadius: 10 },
+      },
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: { borderRadius: 10 },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: { fontWeight: 500 },
+      },
+    },
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          borderRadius: 16,
+          boxShadow: '0 8px 40px rgba(0,0,0,0.14)',
+        },
+      },
+    },
+    MuiListItemButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 10,
+          '&:active': { transform: 'scale(0.98)' },
+          transition: 'transform 0.1s ease, background-color 0.15s ease',
+        },
+      },
+    },
+    MuiToggleButton: {
+      styleOverrides: {
+        root: { borderRadius: '8px !important', textTransform: 'none', fontWeight: 500 },
       },
     },
   },

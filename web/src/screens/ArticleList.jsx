@@ -18,6 +18,7 @@ export default function ArticleList() {
   const { t } = useLanguage();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
 
   const {
@@ -43,13 +44,17 @@ export default function ArticleList() {
   };
 
   const handleDeleteClick = async (event) => {
-    if (window.confirm(`Are you sure you want to delete the event "${event.title}"?`)) {
+    if (deletingId === event.id) return;
+    if (window.confirm(`${t('Delete Event')}?\n"${event.title}"`)) {
+      setDeletingId(event.id);
       try {
         await apiClient.delete(`/crm/articles/${event.id}/`);
         setToast({ open: true, message: t('Event deleted successfully.'), severity: 'success' });
         refresh();
       } catch (err) {
         setToast({ open: true, message: t('Failed to delete event.'), severity: 'error' });
+      } finally {
+        setDeletingId(null);
       }
     }
   };
@@ -108,7 +113,9 @@ export default function ArticleList() {
                       <IconButton size="small" color="primary" onClick={() => handleEditClick(a)}><EditIcon fontSize="small" /></IconButton>
                     </Tooltip>
                     <Tooltip title={t('Delete Event')}>
-                      <IconButton size="small" color="error" onClick={() => handleDeleteClick(a)}><DeleteIcon fontSize="small" /></IconButton>
+                      <IconButton size="small" color="error" onClick={() => handleDeleteClick(a)} disabled={deletingId === a.id}>
+                        {deletingId === a.id ? <CircularProgress size={14} color="inherit" /> : <DeleteIcon fontSize="small" />}
+                      </IconButton>
                     </Tooltip>
                   </Box>
                 </CardActions>

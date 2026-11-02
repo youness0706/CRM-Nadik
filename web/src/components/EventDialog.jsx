@@ -69,7 +69,7 @@ export default function EventDialog({ open, onClose, event = null, onSuccess }) 
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="sm" fullWidth>
       <form onSubmit={handleSubmit}>
         <DialogTitle>{event ? t('Edit Event') : t('Add Event')}</DialogTitle>
         <DialogContent dividers>
@@ -117,10 +117,16 @@ export default function EventDialog({ open, onClose, event = null, onSuccess }) 
             </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={onClose} disabled={loading}>{t('Cancel')}</Button>
-          <Button type="submit" variant="contained" disabled={loading} startIcon={loading ? <CircularProgress size={20} /> : null}>
-            {event ? t('Save Changes') : t('Add Event')}
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={onClose} disabled={loading} variant="outlined">{t('Cancel')}</Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={18} color="inherit" /> : null}
+            sx={{ minWidth: 120 }}
+          >
+            {loading ? '...' : (event ? t('Save Changes') : t('Add Event'))}
           </Button>
         </DialogActions>
       </form>

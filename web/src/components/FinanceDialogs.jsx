@@ -52,7 +52,7 @@ export function ExpenseDialog({ open, onClose, expense = null, onSuccess }) {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="sm" fullWidth>
       <form onSubmit={handleSubmit}>
         <DialogTitle>{expense ? t('Edit Expense') : t('Add Expense')}</DialogTitle>
         <DialogContent dividers>
@@ -78,10 +78,16 @@ export function ExpenseDialog({ open, onClose, expense = null, onSuccess }) {
             </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={onClose} disabled={loading}>{t('Cancel')}</Button>
-          <Button type="submit" variant="contained" disabled={loading} startIcon={loading ? <CircularProgress size={20} /> : null}>
-            {expense ? t('Save Changes') : t('Add Expense')}
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={onClose} disabled={loading} variant="outlined">{t('Cancel')}</Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={18} color="inherit" /> : null}
+            sx={{ minWidth: 120 }}
+          >
+            {loading ? '...' : (expense ? t('Save Changes') : t('Add Expense'))}
           </Button>
         </DialogActions>
       </form>
@@ -126,7 +132,7 @@ export function AddedPaymentDialog({ open, onClose, payment = null, onSuccess })
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="sm" fullWidth>
       <form onSubmit={handleSubmit}>
         <DialogTitle>{payment ? t('Edit Additional Payment') : t('Add Additional Payment')}</DialogTitle>
         <DialogContent dividers>
@@ -146,10 +152,16 @@ export function AddedPaymentDialog({ open, onClose, payment = null, onSuccess })
             </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={onClose} disabled={loading}>{t('Cancel')}</Button>
-          <Button type="submit" variant="contained" disabled={loading} startIcon={loading ? <CircularProgress size={20} /> : null}>
-            {payment ? t('Save Changes') : t('Add Payment')}
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={onClose} disabled={loading} variant="outlined">{t('Cancel')}</Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={18} color="inherit" /> : null}
+            sx={{ minWidth: 120 }}
+          >
+            {loading ? '...' : (payment ? t('Save Changes') : t('Add Payment'))}
           </Button>
         </DialogActions>
       </form>

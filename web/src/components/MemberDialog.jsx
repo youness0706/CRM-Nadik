@@ -138,7 +138,7 @@ export default function MemberDialog({ open, onClose, member = null, onSuccess }
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="md" fullWidth>
       <form onSubmit={handleSubmit}>
         <DialogTitle>{member ? t('Edit Member') : t('Add New Member')}</DialogTitle>
         <DialogContent dividers>
@@ -255,10 +255,16 @@ export default function MemberDialog({ open, onClose, member = null, onSuccess }
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={onClose} disabled={loading}>{t('Cancel')}</Button>
-          <Button type="submit" variant="contained" disabled={loading} startIcon={loading ? <CircularProgress size={20} /> : null}>
-            {member ? t('Save Changes') : t('Add Member')}
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={onClose} disabled={loading} variant="outlined">{t('Cancel')}</Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={18} color="inherit" /> : null}
+            sx={{ minWidth: 120 }}
+          >
+            {loading ? '...' : (member ? t('Save Changes') : t('Add Member'))}
           </Button>
         </DialogActions>
       </form>
