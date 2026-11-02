@@ -17,7 +17,7 @@ import Settings from './screens/Settings';
 import PlatformOrganizations from './screens/PlatformOrganizations';
 import PlatformPayments from './screens/PlatformPayments';
 import Layout from './components/Layout';
-import apiClient from './services/api';
+import { getCurrentUser } from './services/api';
 import { LanguageProvider } from './state/LanguageContext';
 
 const theme = createTheme({
@@ -160,8 +160,8 @@ function DashboardRouter() {
   const [platformAdmin, setPlatformAdmin] = useState(null);
 
   useEffect(() => {
-    apiClient.get('/auth/me/')
-      .then((response) => setPlatformAdmin((response.data.data ?? response.data).is_platform_admin))
+    getCurrentUser()
+      .then((user) => setPlatformAdmin(user.is_platform_admin))
       .catch(() => setPlatformAdmin(false));
   }, []);
 

@@ -14,7 +14,14 @@ if 'collectstatic' not in sys.argv:
     DATABASE_URL = os.getenv('DATABASE_URL') or os.getenv('POSTGRES_URL')
     if not DATABASE_URL:
         raise Exception("DATABASE_URL or POSTGRES_URL is required in production")
-    database_config = dj_database_url.parse(DATABASE_URL)
+    # Reuse the database connection while a Vercel function instance stays
+    # warm. This avoids a full TLS/database handshake on every API request.
+    # Django will discard stale connections before use when needed.
+    database_config = dj_database_url.parse(
+        DATABASE_URL,
+        conn_max_age=60,
+        conn_health_checks=True,
+    )
     # dj-database-url maps sslmode=require to MySQLdb's ``ssl_mode`` option.
     # PyMySQL uses the DB-API ``ssl`` option instead and rejects ``ssl_mode``.
     if database_config.get('ENGINE') == 'django.db.backends.mysql':

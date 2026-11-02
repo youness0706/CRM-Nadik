@@ -19,7 +19,7 @@ import TranslateIcon from '@mui/icons-material/Translate';
 import { FormControl, MenuItem, Select } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import apiClient, { API_BASE_URL } from '../services/api';
+import { API_BASE_URL, getCurrentUser, clearCurrentUserCache } from '../services/api';
 import { useLanguage } from '../state/LanguageContext';
 
 const drawerWidth = 264;
@@ -33,8 +33,8 @@ export default function Layout({ children }) {
   const { language, setLanguage, direction, t } = useLanguage();
 
   useEffect(() => {
-    apiClient.get('/auth/me/')
-      .then((response) => setProfile(response.data.data ?? response.data))
+    getCurrentUser()
+      .then((user) => setProfile(user))
       .catch(() => setProfile(null));
   }, []);
 
@@ -57,6 +57,7 @@ export default function Layout({ children }) {
     } finally {
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
+      clearCurrentUserCache();
       navigate('/');
     }
   };

@@ -12,6 +12,26 @@ const apiClient = axios.create({
   timeout: 15000, 
 });
 
+// Keep the authenticated profile in memory for the lifetime of the SPA.
+// The layout is remounted on navigation, so without this cache every page
+// transition made another round trip to the backend for the same user data.
+let currentUserPromise = null;
+
+export const getCurrentUser = (force = false) => {
+  if (!force && currentUserPromise) return currentUserPromise;
+  currentUserPromise = apiClient.get('/auth/me/').then((response) => (
+    response.data.data ?? response.data
+  )).catch((error) => {
+    currentUserPromise = null;
+    throw error;
+  });
+  return currentUserPromise;
+};
+
+export const clearCurrentUserCache = () => {
+  currentUserPromise = null;
+};
+
 // Request interceptor to attach access token
 apiClient.interceptors.request.use(
   (config) => {
