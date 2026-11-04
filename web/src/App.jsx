@@ -8,6 +8,7 @@ import Dashboard from './screens/Dashboard';
 import PlatformDashboard from './screens/PlatformDashboard';
 import StaffList from './screens/StaffList';
 import MemberList from './screens/MemberList';
+import MemberProfile from './screens/MemberProfile';
 import PaymentList from './screens/PaymentList';
 import UnpaidList from './screens/UnpaidList';
 import ArticleList from './screens/ArticleList';
@@ -187,6 +188,7 @@ function App() {
           <Route path="/dashboard" element={<ProtectedRoute><DashboardRouter /></ProtectedRoute>} />
           <Route path="/staff" element={<ProtectedRoute><StaffList /></ProtectedRoute>} />
           <Route path="/members" element={<ProtectedRoute><MemberList /></ProtectedRoute>} />
+          <Route path="/members/:id" element={<ProtectedRoute><MemberProfile /></ProtectedRoute>} />
           <Route path="/payments" element={<ProtectedRoute><PaymentList /></ProtectedRoute>} />
           <Route path="/unpaid" element={<ProtectedRoute><UnpaidList /></ProtectedRoute>} />
           <Route path="/events" element={<ProtectedRoute><ArticleList /></ProtectedRoute>} />

@@ -4,7 +4,7 @@ import {
   TableRow, Button, Box, Chip, TextField, InputAdornment,
   CircularProgress, ToggleButtonGroup, ToggleButton, FormControl, InputLabel,
   Select, MenuItem, TablePagination, IconButton, Tooltip, Snackbar, Alert,
-  Card, CardContent, useMediaQuery, useTheme, Stack
+  Card, CardContent, useMediaQuery, useTheme, Stack, Avatar
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -14,6 +14,7 @@ import usePagination from '../hooks/usePagination';
 import MemberDialog from '../components/MemberDialog';
 import apiClient from '../services/api';
 import { useLanguage } from '../state/LanguageContext';
+import { useNavigate } from 'react-router-dom';
 
 const CATEGORIES = [
   { value: 'all', label: 'All Categories' },
@@ -26,6 +27,7 @@ const CATEGORIES = [
 
 export default function MemberList() {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [searchInput, setSearchInput] = useState('');
@@ -51,6 +53,10 @@ export default function MemberList() {
   const handleEditClick = (member) => {
     setSelectedMember(member);
     setDialogOpen(true);
+  };
+
+  const handleOpenProfile = (member) => {
+    navigate(`/members/${member.id}`);
   };
 
   const handleDeleteClick = async (member) => {
@@ -132,19 +138,34 @@ export default function MemberList() {
           ) : (
             <Stack spacing={1.5}>
               {members.map((m) => (
-                <Card key={m.id} sx={{ borderRadius: 2.5, boxShadow: '0 1px 6px rgba(0,0,0,0.07)' }}>
+                <Card
+                  key={m.id}
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => handleOpenProfile(m)}
+                  onKeyDown={(event) => {
+                    if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+                      event.preventDefault();
+                      handleOpenProfile(m);
+                    }
+                  }}
+                  sx={{ borderRadius: 2.5, boxShadow: '0 1px 6px rgba(0,0,0,0.07)', cursor: 'pointer' }}
+                >
                   <CardContent sx={{ p: '14px 16px !important' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                      <Box>
-                        <Typography fontWeight={700} sx={{ fontSize: '1rem', color: 'text.primary' }}>{m.first_name} {m.last_name}</Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-                          {m.phone ? m.phone : '—'} • {m.category || ''}
-                        </Typography>
-                        {m.belt_degree && (
-                          <Typography variant="caption" sx={{ color: 'primary.dark', display: 'block', mt: 0.5, fontWeight: 500 }}>
-                            {t('Belt')}: {m.belt_degree}
+                      <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'center', minWidth: 0 }}>
+                        <Avatar src={m.image || undefined} alt={`${m.first_name} ${m.last_name}`} />
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography fontWeight={700} sx={{ fontSize: '1rem', color: 'text.primary' }}>{m.first_name} {m.last_name}</Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                            {m.phone ? m.phone : '—'} • {m.category || ''}
                           </Typography>
-                        )}
+                          {m.belt_degree && (
+                            <Typography variant="caption" sx={{ color: 'primary.dark', display: 'block', mt: 0.5, fontWeight: 500 }}>
+                              {t('Belt')}: {m.belt_degree}
+                            </Typography>
+                          )}
+                        </Box>
                       </Box>
                       <Chip
                         label={m.is_active ? t('Active') : t('Inactive')}
@@ -159,7 +180,7 @@ export default function MemberList() {
                         variant="outlined"
                         color="primary"
                         startIcon={<EditIcon fontSize="small" />}
-                        onClick={() => handleEditClick(m)}
+                        onClick={(event) => { event.stopPropagation(); handleEditClick(m); }}
                         sx={{ minHeight: 34, borderRadius: 1.5 }}
                       >
                         {t('Edit')}
@@ -169,7 +190,7 @@ export default function MemberList() {
                         variant="outlined"
                         color="error"
                         startIcon={deletingId === m.id ? <CircularProgress size={14} color="inherit" /> : <DeleteIcon fontSize="small" />}
-                        onClick={() => handleDeleteClick(m)}
+                        onClick={(event) => { event.stopPropagation(); handleDeleteClick(m); }}
                         disabled={deletingId === m.id}
                         sx={{ minHeight: 34, borderRadius: 1.5 }}
                       >
@@ -214,8 +235,26 @@ export default function MemberList() {
                 <TableRow><TableCell colSpan={7} align="center" sx={{ py: 6 }}><Typography color="text.secondary">{t('No members found.')}</Typography></TableCell></TableRow>
               ) : (
                 members.map((m) => (
-                  <TableRow key={m.id} hover>
-                    <TableCell sx={{ fontWeight: 500 }}>{m.first_name} {m.last_name}</TableCell>
+                  <TableRow
+                    key={m.id}
+                    hover
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => handleOpenProfile(m)}
+                    onKeyDown={(event) => {
+                      if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+                        event.preventDefault();
+                        handleOpenProfile(m);
+                      }
+                    }}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    <TableCell sx={{ fontWeight: 500 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                        <Avatar src={m.image || undefined} alt={`${m.first_name} ${m.last_name}`} sx={{ width: 36, height: 36 }} />
+                        <Typography fontWeight={500}>{m.first_name} {m.last_name}</Typography>
+                      </Box>
+                    </TableCell>
                     <TableCell>{m.phone || '—'}</TableCell>
                     <TableCell>{m.category}</TableCell>
                     <TableCell>{m.belt_degree || '—'}</TableCell>
@@ -225,10 +264,10 @@ export default function MemberList() {
                     </TableCell>
                     <TableCell align="right">
                       <Tooltip title={t('Edit Member')}>
-                        <IconButton size="small" color="primary" onClick={() => handleEditClick(m)}><EditIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" color="primary" onClick={(event) => { event.stopPropagation(); handleEditClick(m); }}><EditIcon fontSize="small" /></IconButton>
                       </Tooltip>
                       <Tooltip title={t('Delete Member')}>
-                        <IconButton size="small" color="error" onClick={() => handleDeleteClick(m)} disabled={deletingId === m.id}>
+                        <IconButton size="small" color="error" onClick={(event) => { event.stopPropagation(); handleDeleteClick(m); }} disabled={deletingId === m.id}>
                           {deletingId === m.id ? <CircularProgress size={14} /> : <DeleteIcon fontSize="small" />}
                         </IconButton>
                       </Tooltip>

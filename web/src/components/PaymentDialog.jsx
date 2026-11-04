@@ -10,7 +10,7 @@ import { useLanguage } from '../state/LanguageContext';
 
 const PAYMENT_TYPES = [
   { value: 'month', label: 'Monthly' },
-  { value: 'subscription', label: 'Subscription' },
+  { value: 'subscription', label: 'Yearly subscription' },
   { value: 'assurance', label: 'Insurance' },
   { value: 'jawaz', label: 'Jawaz' },
 ];
@@ -22,7 +22,7 @@ const DEFAULT_PAYMENT = {
   paymentAmount: ''
 };
 
-export default function PaymentDialog({ open, onClose, payment = null, onSuccess }) {
+export default function PaymentDialog({ open, onClose, payment = null, initialTrainer = null, onSuccess }) {
   const { t } = useLanguage();
   const [formData, setFormData] = useState(DEFAULT_PAYMENT);
   const [loading, setLoading] = useState(false);
@@ -30,32 +30,38 @@ export default function PaymentDialog({ open, onClose, payment = null, onSuccess
   
   // For selecting members
   const [members, setMembers] = useState([]);
-  const [memberSearch, setMemberSearch] = useState('');
+  const [selectedMember, setSelectedMember] = useState(null);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [membersError, setMembersError] = useState('');
 
-  useEffect(() => {
-    if (open) {
-      setFormData(payment ? { ...payment, trainer: payment.trainer } : DEFAULT_PAYMENT);
-      setError(null);
-      fetchMembers('');
-    }
-  }, [open, payment]);
-
-  const fetchMembers = async (searchQuery) => {
+  async function fetchMembers(searchQuery, currentMember = initialTrainer) {
     setLoadingMembers(true);
     setMembersError('');
     try {
-      // Just fetch the first page for the dropdown, or use search
       const response = await apiClient.get(`/crm/members/?is_active=true&search=${searchQuery}`);
-      setMembers(response.data.results || response.data || []);
+      const fetchedMembers = response.data.results || response.data || [];
+      setMembers(currentMember && !fetchedMembers.some((member) => member.id === currentMember.id)
+        ? [currentMember, ...fetchedMembers]
+        : fetchedMembers);
     } catch (err) {
       setMembersError(getApiErrorMessage(err, 'Unable to load members.'));
       console.error('Failed to fetch members:', err);
     } finally {
       setLoadingMembers(false);
     }
-  };
+  }
+
+  useEffect(() => {
+    if (open) {
+      const currentMember = payment
+        ? { id: payment.trainer, first_name: payment.trainer_name, last_name: payment.trainer_surname }
+        : initialTrainer;
+      setFormData(payment ? { ...payment, trainer: payment.trainer } : { ...DEFAULT_PAYMENT, trainer: currentMember?.id || '' });
+      setSelectedMember(currentMember);
+      setError(null);
+      fetchMembers('', currentMember);
+    }
+  }, [open, payment, initialTrainer]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -100,12 +106,16 @@ export default function PaymentDialog({ open, onClose, payment = null, onSuccess
               <Autocomplete
                 options={members}
                 getOptionLabel={(option) => `${option.first_name} ${option.last_name} (${option.phone || 'No phone'})`}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                value={selectedMember}
                 loading={loadingMembers}
-                onInputChange={(event, newInputValue) => fetchMembers(newInputValue)}
+                onInputChange={(event, newInputValue, reason) => {
+                  if (reason === 'input') fetchMembers(newInputValue);
+                }}
                 onChange={(event, newValue) => {
+                  setSelectedMember(newValue);
                   setFormData(prev => ({ ...prev, trainer: newValue ? newValue.id : '' }));
                 }}
-                defaultValue={payment ? { id: payment.trainer, first_name: payment.trainer_name, last_name: payment.trainer_surname } : null}
                 renderInput={(params) => (
                   <TextField {...params} label={t('Select Member')} required variant="outlined" />
                 )}

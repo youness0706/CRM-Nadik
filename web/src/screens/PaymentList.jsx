@@ -20,7 +20,7 @@ import { useLanguage } from '../state/LanguageContext';
 const PAYMENT_TYPES = [
   { value: 'all', label: 'All Types' },
   { value: 'month', label: 'Monthly' },
-  { value: 'subscription', label: 'Subscription' },
+  { value: 'subscription', label: 'Yearly subscription' },
   { value: 'assurance', label: 'Insurance' },
   { value: 'jawaz', label: 'Jawaz' },
 ];
