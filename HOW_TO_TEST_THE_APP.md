@@ -20,7 +20,7 @@ Terminal 2, start the web app:
 npm.cmd --prefix web run dev -- --host 127.0.0.1
 ```
 
-Open the web app at <http://127.0.0.1:5173/>. Check the API documentation at <http://127.0.0.1:8000/api/v1/docs/>.
+Open the web app at <http://localhost:5173/>. Local API requests are proxied by Vite to Django. Check the API documentation at <http://127.0.0.1:8000/api/v1/docs/>.
 
 If the local test accounts are missing, the development seed script can create them:
 

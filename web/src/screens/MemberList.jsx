@@ -8,11 +8,14 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
+import DownloadIcon from '@mui/icons-material/Download';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import usePagination from '../hooks/usePagination';
 import MemberDialog from '../components/MemberDialog';
 import apiClient from '../services/api';
+import { getApiErrorMessage } from '../services/errors';
 import { useLanguage } from '../state/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -34,6 +37,8 @@ export default function MemberList() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [excelImporting, setExcelImporting] = useState(false);
+  const [templateDownloading, setTemplateDownloading] = useState(false);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
 
   const {
@@ -80,15 +85,100 @@ export default function MemberList() {
     refresh();
   };
 
+  const handleExcelImport = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    const payload = new FormData();
+    payload.append('file', file);
+    setExcelImporting(true);
+    try {
+      const response = await apiClient.post('/crm/members/import-excel/', payload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setToast({
+        open: true,
+        message: `${response.data.created} ${t('Trainees imported successfully.')}`,
+        severity: 'success',
+      });
+      refresh();
+    } catch (requestError) {
+      const rowErrors = requestError.response?.data?.rows;
+      const rowSummary = Array.isArray(rowErrors)
+        ? rowErrors.slice(0, 3).map(({ row, errors }) => (
+          `${t('Row')} ${row}: ${Object.values(errors).flat().join(', ')}`
+        )).join('; ')
+        : '';
+      const remainingRows = Array.isArray(rowErrors) ? rowErrors.length - 3 : 0;
+      setToast({
+        open: true,
+        message: [
+          getApiErrorMessage(requestError, t('Unable to import the Excel file.')),
+          rowSummary,
+          remainingRows > 0 ? `(${remainingRows} ${t('more rows')})` : '',
+        ].filter(Boolean).join(' '),
+        severity: 'error',
+      });
+    } finally {
+      setExcelImporting(false);
+    }
+  };
+
+  const handleTemplateDownload = async () => {
+    setTemplateDownloading(true);
+    try {
+      const response = await apiClient.get('/crm/members/excel-template/', { responseType: 'blob' });
+      const downloadUrl = window.URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = 'trainees_template.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 1000);
+    } catch (requestError) {
+      setToast({
+        open: true,
+        message: getApiErrorMessage(requestError, t('Unable to download the Excel template.')),
+        severity: 'error',
+      });
+    } finally {
+      setTemplateDownloading(false);
+    }
+  };
+
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, gap: 1 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, mb: 2.5, gap: 1, flexWrap: 'wrap' }}>
         <Typography variant="h4" fontWeight="bold">{t('Members')}</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} size={isMobile ? 'medium' : 'large'} onClick={handleAddClick} sx={{ flexShrink: 0 }}>
-          {isMobile ? t('Add Member') : t('Add Member')}
-        </Button>
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleTemplateDownload}
+            disabled={templateDownloading}
+          >
+            {templateDownloading ? t('Downloading...') : t('Download Excel template')}
+          </Button>
+          <Button
+            component="label"
+            variant="outlined"
+            startIcon={excelImporting ? <CircularProgress size={18} /> : <UploadFileIcon />}
+            disabled={excelImporting}
+          >
+            {excelImporting ? t('Importing...') : t('Import Excel')}
+            <input hidden type="file" accept=".xlsx" onChange={handleExcelImport} />
+          </Button>
+          <Button variant="contained" startIcon={<AddIcon />} size={isMobile ? 'medium' : 'large'} onClick={handleAddClick} sx={{ flexShrink: 0 }}>
+            {t('Add Member')}
+          </Button>
+        </Stack>
       </Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        {t('Excel format: first_name, last_name, gender (male or female).')}
+      </Typography>
 
       {/* Filters */}
       <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 2.5, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', borderRadius: 2 }}>

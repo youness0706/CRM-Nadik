@@ -9,7 +9,7 @@ Currently, two official plugins are available:
 
 ## API Configuration
 
-Set `VITE_API_BASE_URL` to the backend API root (including `/api/v1`) before building for deployment. If unset, the app uses `http://localhost:8000/api/v1` for local development.
+For local development, the Vite server proxies `/api` requests to `http://127.0.0.1:8000`, avoiding cross-origin requests. Set `VITE_API_BASE_URL` to `/api/v1` for the local frontend. For deployment, set it to the backend API root (including `/api/v1`) before building.
 
 ## React Compiler
 

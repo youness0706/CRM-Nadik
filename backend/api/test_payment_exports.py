@@ -81,6 +81,14 @@ class PaymentExportApiTests(TestCase):
         ))
         self.assertIsNotNone(document.tables[0]._tbl.tblPr.find(qn('w:bidiVisual')))
 
+    def test_paid_export_handles_missing_trainee_birth_date(self):
+        self.trainee.birth_day = None
+        self.trainee.save(update_fields=['birth_day'])
+
+        response = self.client.get('/api/v1/crm/payments/export/docx/', {'status': 'paid'})
+
+        self.assertEqual(response.status_code, 200)
+
     def test_unpaid_export_uses_selected_period_and_category(self):
         response = self.client.get('/api/v1/crm/payments/export/docx/', {
             'paymentCategry': 'month',

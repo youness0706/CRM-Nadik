@@ -1,11 +1,13 @@
 import tempfile
 from datetime import datetime
+from io import BytesIO
 
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.utils import timezone
+from openpyxl import Workbook, load_workbook
 from rest_framework.test import APIClient
 
 from trainers.models import Addedpay, Article, Costs, OrganizationInfo, Payments, Staff, Trainer
@@ -37,6 +39,105 @@ class WebWorkflowContractTests(TestCase):
             male_female='male',
             category='كبار',
         )
+
+    def create_excel_upload(self, rows):
+        workbook = Workbook()
+        worksheet = workbook.active
+        for row in rows:
+            worksheet.append(row)
+        content = BytesIO()
+        workbook.save(content)
+        return SimpleUploadedFile(
+            'trainees.xlsx',
+            content.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+
+    def test_excel_template_has_required_columns_and_gender_values(self):
+        response = self.client.get('/api/v1/crm/members/excel-template/')
+
+        self.assertEqual(response.status_code, 200)
+        workbook = load_workbook(BytesIO(response.content), read_only=False)
+        worksheet = workbook['Trainees']
+        headers = [cell.value for cell in worksheet[1]]
+        self.assertEqual(headers[:3], [
+            'first_name / الاسم الأول',
+            'last_name / اسم العائلة',
+            'gender / الجنس',
+        ])
+        self.assertIn('phone / الهاتف', headers)
+        self.assertIn('birth_day / تاريخ الميلاد', headers)
+        self.assertTrue(worksheet.data_validations.dataValidation)
+        self.assertIn('male,female,ذكر,أنثى', worksheet.data_validations.dataValidation[0].formula1)
+        self.assertIn('Instructions', workbook.sheetnames)
+
+    def test_excel_import_creates_trainees_without_phone_or_birth_date(self):
+        excel_file = self.create_excel_upload([
+            ['first_name', 'last_name', 'gender'],
+            ['Amina', 'Test', 'female'],
+            ['Youssef', 'Sample', 'male'],
+        ])
+
+        response = self.client.post(
+            '/api/v1/crm/members/import-excel/',
+            {'file': excel_file},
+            format='multipart',
+        )
+
+        self.assertEqual(response.status_code, 201, msg=response.data)
+        self.assertEqual(response.data['created'], 2)
+        imported = Trainer.objects.filter(organization=self.organization).order_by('first_name')
+        self.assertEqual(imported.count(), 2)
+        amina = imported.get(first_name='Amina')
+        self.assertEqual(amina.last_name, 'Test')
+        self.assertEqual(amina.male_female, 'female')
+        self.assertIsNone(amina.birth_day)
+        self.assertEqual(amina.phone, '')
+
+    def test_excel_import_accepts_bilingual_headers_and_optional_fields(self):
+        excel_file = self.create_excel_upload([
+            [
+                'first_name / الاسم الأول',
+                'last_name / اسم العائلة',
+                'gender / الجنس',
+                'birth_day / تاريخ الميلاد',
+                'phone / الهاتف',
+                'email / البريد الإلكتروني',
+            ],
+            ['Salma', 'Example', 'أنثى', datetime(2010, 5, 10), '0612345678', 'salma@example.com'],
+        ])
+
+        response = self.client.post(
+            '/api/v1/crm/members/import-excel/',
+            {'file': excel_file},
+            format='multipart',
+        )
+
+        self.assertEqual(response.status_code, 201, msg=response.data)
+        imported = Trainer.objects.get(organization=self.organization, first_name='Salma')
+        self.assertEqual(imported.male_female, 'female')
+        self.assertEqual(imported.birth_day.isoformat(), '2010-05-10')
+        self.assertEqual(imported.phone, '0612345678')
+        self.assertEqual(imported.email, 'salma@example.com')
+
+    def test_excel_import_is_atomic_when_a_row_is_invalid(self):
+        excel_file = self.create_excel_upload([
+            ['first_name', 'last_name', 'gender'],
+            ['Valid', 'Trainee', 'male'],
+            ['Invalid', 'Trainee', 'unknown'],
+        ])
+
+        response = self.client.post(
+            '/api/v1/crm/members/import-excel/',
+            {'file': excel_file},
+            format='multipart',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data['rows'][0]['row'], 3)
+        self.assertIn('الجنس / gender', response.data['rows'][0]['errors'])
+        self.assertIn('لم يتم استيراد المتدربين', response.data['error'])
+        self.assertFalse(Trainer.objects.filter(organization=self.organization).exists())
 
     def test_member_search_filters_results(self):
         matching = self.create_member('Distinctive', 'Trainee')

@@ -1,22 +1,30 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.db.models import Sum, Count, Q, F, DecimalField, Exists, OuterRef
+from django.db import transaction
+from django.db.models import Sum, Count, Q, F, Case, When, Value, DecimalField, Exists, OuterRef
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_date
+from django.core.cache import cache
 from django.http import HttpResponse
 from datetime import datetime, timedelta
 import calendar
 from io import BytesIO
+from zipfile import BadZipFile
 from docx import Document
 from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
+from openpyxl import Workbook, load_workbook
+from openpyxl.comments import Comment
+from openpyxl.utils.exceptions import InvalidFileException
+from openpyxl.worksheet.datavalidation import DataValidation
 
 from trainers.models import (
     Staff, Trainer, Payments, Article, Costs, Addedpay, TrainerDocument, OrganizationInfo
@@ -72,11 +80,333 @@ class TrainerViewSet(BaseOrganizationViewSet):
     queryset = Trainer.objects.all()
     serializer_class = TrainerSerializer
     search_fields = ['first_name', 'last_name', 'phone', 'email', 'CIN']
+    max_import_size = 5 * 1024 * 1024
 
     def get_serializer_class(self):
         if self.action in ('create', 'update', 'partial_update'):
             return TrainerCreateSerializer
         return TrainerSerializer
+
+    @action(detail=False, methods=['get'], url_path='excel-template')
+    def excel_template(self, request):
+        template_columns = [
+            ('first_name', 'الاسم الأول', 'Required / مطلوب'),
+            ('last_name', 'اسم العائلة', 'Required / مطلوب'),
+            ('gender', 'الجنس', 'Required / مطلوب: male/female أو ذكر/أنثى'),
+            ('birth_day', 'تاريخ الميلاد', 'Optional / اختياري: YYYY-MM-DD'),
+            ('phone', 'الهاتف', 'Optional / اختياري'),
+            ('phone_parent', 'هاتف ولي الأمر', 'Optional / اختياري'),
+            ('email', 'البريد الإلكتروني', 'Optional / اختياري'),
+            ('CIN', 'رقم البطاقة الوطنية', 'Optional / اختياري'),
+            ('address', 'العنوان', 'Optional / اختياري'),
+            ('belt_degree', 'درجة الحزام', 'Optional / اختياري'),
+            ('Degree', 'المستوى الدراسي', 'Optional / اختياري'),
+            ('category', 'الفئة', 'Optional / اختياري: use an available category / اختر فئة متاحة'),
+            ('tall', 'الطول (سم)', 'Optional / اختياري'),
+            ('weight', 'الوزن (كلغ)', 'Optional / اختياري'),
+            ('started_day', 'تاريخ البداية', 'Optional / اختياري: YYYY-MM-DD'),
+            ('is_active', 'الحالة', 'Optional / اختياري: true/false أو نعم/لا'),
+        ]
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.title = 'Trainees'
+        worksheet.append([f'{field_name} / {arabic_label}' for field_name, arabic_label, _ in template_columns])
+        for index, (_, _, instruction) in enumerate(template_columns, start=1):
+            column_letter = worksheet.cell(row=1, column=index).column_letter
+            worksheet.cell(row=1, column=index).comment = Comment(instruction, 'Nadik')
+            worksheet.column_dimensions[column_letter].width = 28
+        worksheet.freeze_panes = 'A2'
+        worksheet.auto_filter.ref = f'A1:{worksheet.cell(row=1, column=len(template_columns)).column_letter}1'
+        gender_validation = DataValidation(type='list', formula1='"male,female,ذكر,أنثى"', allow_blank=False)
+        worksheet.add_data_validation(gender_validation)
+        gender_validation.add('C2:C1000')
+
+        instructions = workbook.create_sheet('Instructions')
+        instructions.append(['Column / الحقل', 'Required / مطلوب', 'Accepted values / القيم المقبولة'])
+        for field_name, arabic_label, instruction in template_columns:
+            instructions.append([f'{field_name} / {arabic_label}', instruction, instruction])
+        instructions.append([
+            'Only first name, last name, and gender are required. / الحقول المطلوبة فقط: الاسم الأول واسم العائلة والجنس.',
+            '',
+            '',
+        ])
+        instructions.column_dimensions['A'].width = 48
+        instructions.column_dimensions['B'].width = 42
+        instructions.column_dimensions['C'].width = 42
+
+        output = BytesIO()
+        workbook.save(output)
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = 'attachment; filename="trainees_template.xlsx"'
+        return response
+
+    @action(
+        detail=False,
+        methods=['post'],
+        url_path='import-excel',
+        parser_classes=[FormParser, MultiPartParser],
+    )
+    def import_excel(self, request):
+        excel_file = request.FILES.get('file')
+        if not excel_file:
+            return Response(
+                {'error': 'Choose an Excel file to import. / اختر ملف Excel للاستيراد.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not excel_file.name.lower().endswith('.xlsx'):
+            return Response(
+                {'error': 'The file must be an .xlsx workbook. / يجب أن يكون الملف بصيغة .xlsx.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if excel_file.size > self.max_import_size:
+            return Response(
+                {'error': 'The Excel file must be 5 MB or smaller. / يجب ألا يتجاوز حجم ملف Excel خمسة ميغابايت.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            workbook = load_workbook(excel_file, read_only=True, data_only=True)
+        except (InvalidFileException, BadZipFile):
+            return Response(
+                {'error': 'The uploaded file is not a valid .xlsx workbook. / ملف Excel غير صالح.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        header_aliases = {
+            'first_name': 'first_name',
+            'firstname': 'first_name',
+            'prénom': 'first_name',
+            'prenom': 'first_name',
+            'الاسم_الأول': 'first_name',
+            'الاسم_الشخصي': 'first_name',
+            'last_name': 'last_name',
+            'lastname': 'last_name',
+            'nom': 'last_name',
+            'اسم_العائلة': 'last_name',
+            'gender': 'male_female',
+            'sex': 'male_female',
+            'sexe': 'male_female',
+            'male_female': 'male_female',
+            'الجنس': 'male_female',
+            'النوع': 'male_female',
+            'birth_day': 'birth_day',
+            'birthday': 'birth_day',
+            'date_of_birth': 'birth_day',
+            'تاريخ_الميلاد': 'birth_day',
+            'phone': 'phone',
+            'الهاتف': 'phone',
+            'phone_parent': 'phone_parent',
+            'parent_phone': 'phone_parent',
+            'هاتف_ولي_الأمر': 'phone_parent',
+            'email': 'email',
+            'البريد_الإلكتروني': 'email',
+            'cin': 'CIN',
+            'رقم_البطاقة_الوطنية': 'CIN',
+            'address': 'address',
+            'العنوان': 'address',
+            'belt_degree': 'belt_degree',
+            'belt': 'belt_degree',
+            'درجة_الحزام': 'belt_degree',
+            'degree': 'Degree',
+            'education_level': 'Degree',
+            'المستوى_الدراسي': 'Degree',
+            'category': 'category',
+            'الفئة': 'category',
+            'tall': 'tall',
+            'height': 'tall',
+            'الطول_سم': 'tall',
+            'الطول_(سم)': 'tall',
+            'weight': 'weight',
+            'الوزن_كلغ': 'weight',
+            'الوزن_(كلغ)': 'weight',
+            'started_day': 'started_day',
+            'start_date': 'started_day',
+            'تاريخ_البداية': 'started_day',
+            'is_active': 'is_active',
+            'status': 'is_active',
+            'الحالة': 'is_active',
+        }
+        gender_values = {
+            'male': 'male',
+            'm': 'male',
+            'masculin': 'male',
+            'homme': 'male',
+            'ذكر': 'male',
+            'female': 'female',
+            'f': 'female',
+            'féminin': 'female',
+            'feminin': 'female',
+            'femme': 'female',
+            'أنثى': 'female',
+            'انثى': 'female',
+        }
+        active_values = {
+            'true': True,
+            'yes': True,
+            'active': True,
+            'نعم': True,
+            'نشط': True,
+            'false': False,
+            'no': False,
+            'inactive': False,
+            'لا': False,
+            'غير_نشط': False,
+        }
+        category_values = {
+            'kids': 'الصغار',
+            'الصغار': 'الصغار',
+            'boys': 'فتيان',
+            'فتيان': 'فتيان',
+            'youth': 'شبان',
+            'شبان': 'شبان',
+            'adults': 'كبار',
+            'كبار': 'كبار',
+            'women': 'نساء',
+            'نساء': 'نساء',
+        }
+        date_fields = {'birth_day', 'started_day'}
+        valid_rows = []
+        row_errors = []
+
+        try:
+            rows = workbook.active.iter_rows(values_only=True)
+            header_row = next(rows, ())
+            columns = {}
+            for index, value in enumerate(header_row):
+                if value is not None:
+                    header_parts = str(value).strip().casefold().replace('-', ' ').split('/')
+                    normalized_headers = ['_'.join(part.split()) for part in header_parts]
+                    field_name = next(
+                        (header_aliases[header] for header in normalized_headers if header in header_aliases),
+                        None,
+                    )
+                    if field_name:
+                        columns[field_name] = index
+
+            missing_headers = {'first_name', 'last_name', 'male_female'} - columns.keys()
+            if missing_headers:
+                missing = ', '.join(
+                    {'first_name': 'first_name / الاسم الأول',
+                     'last_name': 'last_name / اسم العائلة',
+                     'male_female': 'gender / الجنس'}[field]
+                    for field in ('first_name', 'last_name', 'male_female')
+                    if field in missing_headers
+                )
+                return Response(
+                    {'error': f'Missing required columns / الأعمدة المطلوبة غير موجودة: {missing}.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            for row_number, row in enumerate(rows, start=2):
+                if not any(value is not None and str(value).strip() for value in row):
+                    continue
+
+                data = {}
+                for field_name, column_index in columns.items():
+                    if column_index >= len(row) or row[column_index] is None:
+                        continue
+                    value = row[column_index]
+                    if isinstance(value, str):
+                        value = value.strip()
+                    if value == '':
+                        continue
+                    if field_name in date_fields and hasattr(value, 'date'):
+                        value = value.date()
+                    if field_name == 'male_female':
+                        gender_text = str(value).strip().casefold()
+                        value = gender_values.get(gender_text, gender_text)
+                    elif field_name == 'is_active':
+                        active_text = '_'.join(str(value).strip().casefold().split())
+                        value = active_values.get(active_text, value)
+                    elif field_name == 'category':
+                        category_text = str(value).strip().casefold()
+                        value = category_values.get(category_text, value)
+                    data[field_name] = value
+
+                gender_text = str(data.get('male_female', '')).strip().casefold()
+                gender = gender_values.get(gender_text)
+                data['male_female'] = gender
+                data.setdefault('category', 'كبار')
+                data.setdefault('birth_day', None)
+                serializer = TrainerCreateSerializer(data=data)
+                if gender is None:
+                    row_errors.append({
+                        'row': row_number,
+                        'errors': {'الجنس / gender': ['اكتب male أو female أو ذكر أو أنثى.']},
+                    })
+                elif not serializer.is_valid():
+                    field_labels = {
+                        'first_name': 'الاسم الأول',
+                        'last_name': 'اسم العائلة',
+                        'birth_day': 'تاريخ الميلاد',
+                        'phone': 'الهاتف',
+                        'phone_parent': 'هاتف ولي الأمر',
+                        'email': 'البريد الإلكتروني',
+                        'CIN': 'رقم البطاقة الوطنية',
+                        'address': 'العنوان',
+                        'male_female': 'الجنس',
+                        'belt_degree': 'درجة الحزام',
+                        'Degree': 'المستوى الدراسي',
+                        'category': 'الفئة',
+                        'tall': 'الطول',
+                        'weight': 'الوزن',
+                        'started_day': 'تاريخ البداية',
+                        'is_active': 'الحالة',
+                    }
+                    translated_errors = {}
+                    for field, errors in serializer.errors.items():
+                        message_text = ' '.join(str(error) for error in errors).casefold()
+                        if 'required' in message_text:
+                            translated_message = 'هذا الحقل مطلوب.'
+                        elif 'valid choice' in message_text:
+                            translated_message = 'القيمة غير صالحة. راجع القيم المتاحة في قالب Excel.'
+                        elif 'date' in message_text or 'iso format' in message_text:
+                            translated_message = 'التاريخ غير صالح. استخدم الصيغة YYYY-MM-DD.'
+                        elif 'number' in message_text or 'decimal' in message_text:
+                            translated_message = 'أدخل رقماً صالحاً.'
+                        elif 'email' in message_text:
+                            translated_message = 'أدخل بريداً إلكترونياً صالحاً.'
+                        elif 'characters' in message_text or 'length' in message_text:
+                            translated_message = 'القيمة تتجاوز الحد المسموح.'
+                        else:
+                            translated_message = 'القيمة غير صالحة. تحقق من هذا الحقل.'
+                        translated_errors[f'{field_labels.get(field, field)} / {field}'] = [translated_message]
+                    row_errors.append({
+                        'row': row_number,
+                        'errors': translated_errors,
+                    })
+                else:
+                    valid_rows.append(serializer)
+        except (InvalidFileException, BadZipFile):
+            return Response(
+                {'error': 'The uploaded file is not a valid .xlsx workbook. / ملف Excel غير صالح.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        finally:
+            workbook.close()
+
+        if row_errors:
+            return Response(
+                {
+                    'error': 'No trainees were imported. Fix the rows listed and upload the file again. / لم يتم استيراد المتدربين. صحح الصفوف المذكورة ثم أعد رفع الملف.',
+                    'rows': row_errors,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not valid_rows:
+            return Response(
+                {'error': 'The workbook contains no trainee rows. / لا يحتوي الملف على صفوف متدربين.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        organization = self.get_organization()
+        with transaction.atomic():
+            for serializer in valid_rows:
+                serializer.save(organization=organization)
+        return Response({'created': len(valid_rows)}, status=status.HTTP_201_CREATED)
 
     def get_queryset(self):
         org = self.get_organization()
@@ -292,7 +622,7 @@ class PaymentViewSet(BaseOrganizationViewSet):
                     record.trainer.last_name,
                     record.trainer.first_name,
                     record.trainer.CIN or '—',
-                    record.trainer.birth_day.strftime('%Y/%m/%d'),
+                    record.trainer.birth_day.strftime('%Y/%m/%d') if record.trainer.birth_day else '—',
                     record.paymentdate.strftime('%Y/%m/%d'),
                     f'{record.paymentAmount:.2f}',
                 ]
@@ -302,7 +632,7 @@ class PaymentViewSet(BaseOrganizationViewSet):
                     record.last_name,
                     record.first_name,
                     record.CIN or '—',
-                    record.birth_day.strftime('%Y/%m/%d'),
+                    record.birth_day.strftime('%Y/%m/%d') if record.birth_day else '—',
                     '—',
                     'غير مدفوع',
                 ]
@@ -417,6 +747,12 @@ def dashboard_stats(request):
     except Staff.DoesNotExist:
         return Response({'error': 'No organization found'}, status=403)
 
+    cache_key = f'nadik:dashboard:v2:organization:{org.pk}'
+    user_cache_key = f'nadik:dashboard:v2:user:{request.user.pk}'
+    cached_stats = cache.get(user_cache_key) or cache.get(cache_key)
+    if cached_stats is not None:
+        return Response(cached_stats)
+
     today = timezone.now().date()
     current_month_start = today.replace(day=1)
     month_start_datetime = timezone.make_aware(
@@ -426,24 +762,45 @@ def dashboard_stats(request):
         datetime.combine(today + timedelta(days=1), datetime.min.time())
     )
 
-    # Counts
-    total_members = Trainer.objects.filter(organization=org, is_active=True).count()
-    inactive_members = Trainer.objects.filter(organization=org, is_active=False).count()
+    # Aggregate the member KPIs in one query. The paid-members subquery stays in
+    # SQL, avoiding a separate round trip and avoiding loading IDs into Python.
+    paid_ids = Payments.objects.filter(
+        organization=org,
+        paymentCategry='month',
+        paymentdate__gte=current_month_start,
+    ).values('trainer_id').distinct()
+    member_counts = Trainer.objects.filter(organization=org).aggregate(
+        total_members=Count('id', filter=Q(is_active=True)),
+        inactive_members=Count('id', filter=Q(is_active=False)),
+        unpaid_count=Count(
+            'id',
+            filter=Q(is_active=True) & ~Q(id__in=paid_ids),
+        ),
+        new_members=Count('id', filter=Q(started_day__gte=current_month_start)),
+    )
+
+    # Counts for the smaller related tables remain separate to avoid a
+    # many-to-many join multiplying aggregate results.
     total_staff = Staff.objects.filter(organization=org).count()
     total_articles = Article.objects.filter(organization=org).count()
 
-    # Payments this month
-    month_income = Payments.objects.filter(
-        organization=org,
-        paymentdate__gte=current_month_start,
-        paymentdate__lte=today,
-    ).aggregate(total=Sum('paymentAmount'))['total'] or 0
-
-    # Payments today
-    today_income = Payments.objects.filter(
-        organization=org,
-        paymentdate=today,
-    ).aggregate(total=Sum('paymentAmount'))['total'] or 0
+    # Both payment KPIs come from one aggregate query.
+    payment_totals = Payments.objects.filter(organization=org).aggregate(
+        month_income=Sum(
+            Case(
+                When(paymentdate__gte=current_month_start, paymentdate__lte=today, then=F('paymentAmount')),
+                default=Value(0),
+                output_field=DecimalField(max_digits=10, decimal_places=2),
+            )
+        ),
+        today_income=Sum(
+            Case(
+                When(paymentdate=today, then=F('paymentAmount')),
+                default=Value(0),
+                output_field=DecimalField(max_digits=10, decimal_places=2),
+            )
+        ),
+    )
 
     # Expenses this month
     month_expenses = Costs.objects.filter(
@@ -466,37 +823,26 @@ def dashboard_stats(request):
         'is_active': org.is_active,
     }
 
-    # Unpaid members this month (members who haven't paid monthly this month)
-    paid_ids = Payments.objects.filter(
-        organization=org,
-        paymentCategry='month',
-        paymentdate__gte=current_month_start,
-    ).values_list('trainer_id', flat=True).distinct()
-
-    unpaid_count = Trainer.objects.filter(
-        organization=org, is_active=True
-    ).exclude(id__in=paid_ids).count()
-
-    # New members this month
-    new_members = Trainer.objects.filter(
-        organization=org,
-        started_day__gte=current_month_start,
-    ).count()
-
-    return Response({
-        'total_members': total_members,
-        'inactive_members': inactive_members,
+    stats = {
+        'total_members': member_counts['total_members'],
+        'inactive_members': member_counts['inactive_members'],
         'total_staff': total_staff,
         'total_articles': total_articles,
-        'month_income': float(month_income),
-        'today_income': float(today_income),
+        'month_income': float(payment_totals['month_income'] or 0),
+        'today_income': float(payment_totals['today_income'] or 0),
         'month_expenses': float(month_expenses),
         'month_added_payments': float(month_added),
-        'unpaid_count': unpaid_count,
-        'new_members': new_members,
+        'unpaid_count': member_counts['unpaid_count'],
+        'new_members': member_counts['new_members'],
         'subscription': sub_info,
         'organization_name': org.name,
-    })
+    }
+    # Dashboard numbers do not need a new remote query on every navigation.
+    # Keep this short so normal changes become visible quickly without making
+    # the remote database the bottleneck for repeated page loads.
+    cache.set(cache_key, stats, timeout=10)
+    cache.set(user_cache_key, stats, timeout=10)
+    return Response(stats)
 
 
 @api_view(['GET'])

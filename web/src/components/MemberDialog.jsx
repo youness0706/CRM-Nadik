@@ -154,7 +154,7 @@ export default function MemberDialog({ open, onClose, member = null, onSuccess }
               <TextField fullWidth required type="date" label={t('Date of Birth')} name="birth_day" value={formData.birth_day || ''} onChange={handleChange} InputLabelProps={{ shrink: true }} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth required label={t('Phone')} name="phone" value={formData.phone || ''} onChange={handleChange} />
+              <TextField fullWidth label={t('Phone')} name="phone" value={formData.phone || ''} onChange={handleChange} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth label={t('Parent Phone')} name="phone_parent" value={formData.phone_parent || ''} onChange={handleChange} />

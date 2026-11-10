@@ -495,7 +495,7 @@ class Trainer(models.Model):
     
     first_name = models.CharField(max_length=255, verbose_name='الاسم الأول')
     last_name = models.CharField(max_length=255, verbose_name='اسم العائلة')
-    birth_day = models.DateField(verbose_name='تاريخ الميلاد')
+    birth_day = models.DateField(blank=True, null=True, verbose_name='تاريخ الميلاد')
     phone = models.CharField(max_length=15, blank=True, verbose_name='الهاتف')
     phone_parent = models.CharField(max_length=15, blank=True, verbose_name='هاتف ولي الأمر')
     email = models.EmailField(blank=True, verbose_name='البريد الإلكتروني')
@@ -712,6 +712,9 @@ class Costs(models.Model):
         verbose_name = 'مصروف'
         verbose_name_plural = 'المصاريف'
         ordering = ['-date']
+        indexes = [
+            models.Index(fields=['organization', 'date']),
+        ]
 
     def __str__(self):
         return self.cost
@@ -734,6 +737,9 @@ class Addedpay(models.Model):
         verbose_name = 'دفعة إضافية'
         verbose_name_plural = 'الدفعات الإضافية'
         ordering = ['-date']
+        indexes = [
+            models.Index(fields=['organization', 'date']),
+        ]
 
     def __str__(self):
         return self.title
