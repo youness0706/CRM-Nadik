@@ -12,6 +12,10 @@
                     <h4 class="mb-0">رفع ملف Excel للمدربين</h4>
                 </div>
                 <div class="card-body">
+                    <div class="alert alert-info">
+                        نزّل النموذج الجاهز لاختيار الجنس ودرجة الحزام والفئة من القوائم، مع تنسيق موحّد للتواريخ.
+                        <a class="alert-link" href="{% url 'download_trainers_template' %}">تنزيل نموذج المتدربين</a>
+                    </div>
                     <form method="post" enctype="multipart/form-data">
                         {% csrf_token %}
 
@@ -41,4 +45,3 @@
     </div>
 </div>
 {% endblock %}
-

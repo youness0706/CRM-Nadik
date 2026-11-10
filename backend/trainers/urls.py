@@ -47,6 +47,8 @@ urlpatterns = [
     #Data upload
     path('upload_data/', views.upload_trainers_excel, name='upload_data'),
     path('upload_payments',views.upload_payments_excel, name='upload_payments'),
+    path('download-trainers-template/', views.download_trainers_template, name='download_trainers_template'),
+    path('download-payments-template/', views.download_payments_template, name='download_payments_template'),
     path('unpaid_trainees/', views.unpaid_trainees, name='unpaid_trainees'),
     #Download reports,
     path('trainees_report/', views.download_documents, name='trainees_report'),

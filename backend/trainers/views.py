@@ -1019,7 +1019,8 @@ def remove_article(request,id):
 
 #Financil
 from calendar import monthrange
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+from io import BytesIO
 
 @login_required(login_url='/login/')
 @require_organization
@@ -1737,6 +1738,154 @@ def unpaid_trainees(request):
 import openpyxl  
 # adjust to your actual model import
 
+
+def _excel_template_response(filename, sheet_title, headers, dropdowns, date_columns, instructions):
+    workbook = openpyxl.Workbook()
+    worksheet = workbook.active
+    worksheet.title = sheet_title
+    worksheet.sheet_view.rightToLeft = True
+    worksheet.freeze_panes = "A2"
+    worksheet.append(headers)
+    worksheet.auto_filter.ref = f"A1:{openpyxl.utils.get_column_letter(len(headers))}1000"
+
+    header_fill = openpyxl.styles.PatternFill("solid", fgColor="1F4E78")
+    for cell in worksheet[1]:
+        cell.font = openpyxl.styles.Font(color="FFFFFF", bold=True)
+        cell.fill = header_fill
+        cell.alignment = openpyxl.styles.Alignment(horizontal="center")
+        worksheet.column_dimensions[cell.column_letter].width = 22
+
+    options_sheet = workbook.create_sheet("_Options")
+    options_sheet.sheet_state = "hidden"
+    for options_column, (column, (range_name, values)) in enumerate(dropdowns.items(), start=1):
+        if not values:
+            continue
+        list_column = openpyxl.utils.get_column_letter(options_column)
+        options_sheet.cell(row=1, column=options_column, value=range_name)
+        for row_number, value in enumerate(values, start=2):
+            options_sheet.cell(row=row_number, column=options_column, value=value)
+
+        defined_range = (
+            f"'_Options'!${list_column}${2}:"
+            f"${list_column}${len(values) + 1}"
+        )
+        workbook.defined_names.add(
+            openpyxl.workbook.defined_name.DefinedName(range_name, attr_text=defined_range)
+        )
+        validation = openpyxl.worksheet.datavalidation.DataValidation(
+            type="list",
+            formula1=f"={range_name}",
+            allow_blank=True,
+            errorStyle="stop",
+            errorTitle="اختيار غير صالح",
+            error="اختر قيمة من القائمة.",
+            promptTitle="اختر قيمة",
+            prompt="اختر قيمة من القائمة المتاحة.",
+        )
+        worksheet.add_data_validation(validation)
+        validation.add(f"{openpyxl.utils.get_column_letter(column)}2:{openpyxl.utils.get_column_letter(column)}1000")
+
+    for column in date_columns:
+        validation = openpyxl.worksheet.datavalidation.DataValidation(
+            type="date",
+            operator="between",
+            formula1="DATE(1900,1,1)",
+            formula2="DATE(2100,12,31)",
+            allow_blank=True,
+            errorStyle="stop",
+            errorTitle="تاريخ غير صالح",
+            error="أدخل التاريخ بصيغة YYYY-MM-DD.",
+            promptTitle="صيغة التاريخ",
+            prompt="استخدم الصيغة YYYY-MM-DD.",
+        )
+        worksheet.add_data_validation(validation)
+        letter = openpyxl.utils.get_column_letter(column)
+        validation.add(f"{letter}2:{letter}1000")
+        for row_number in range(2, 1001):
+            worksheet.cell(row=row_number, column=column).number_format = "yyyy-mm-dd"
+
+    guide = workbook.create_sheet("تعليمات")
+    guide.sheet_view.rightToLeft = True
+    guide["A1"] = "تعليمات تعبئة الملف"
+    guide["A1"].font = openpyxl.styles.Font(bold=True, size=14)
+    for row_number, instruction in enumerate(instructions, start=2):
+        guide.cell(row=row_number, column=1, value=instruction)
+    guide.column_dimensions["A"].width = 100
+
+    output = BytesIO()
+    workbook.save(output)
+    response = HttpResponse(
+        output.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required(login_url="/login/")
+@require_organization
+def download_trainers_template(request):
+    return _excel_template_response(
+        "trainees_template.xlsx",
+        "المتدربون",
+        [
+            "الاسم الأول", "اسم العائلة", "تاريخ الميلاد", "الجنس", "الهاتف",
+            "هاتف ولي الأمر", "البريد الإلكتروني", "العنوان", "رقم البطاقة",
+            "المستوى التعليمي", "درجة الحزام", "الفئة", "الطول", "الوزن",
+            "تاريخ الانضمام",
+        ],
+        {
+            4: ("Genders", ["ذكر", "أنثى"]),
+            11: ("Belts", [value for value, _ in Trainer.belts]),
+            12: ("TrainerCategories", [value for value, _ in Trainer.CatChoices]),
+        },
+        [3, 15],
+        [
+            "أدخل بيانات كل متدرب في صف مستقل.",
+            "اختر الجنس ودرجة الحزام والفئة من القوائم لتفادي اختلاف القيم.",
+            "أدخل تاريخ الميلاد وتاريخ الانضمام بصيغة YYYY-MM-DD.",
+        ],
+    )
+
+
+@login_required(login_url="/login/")
+@require_organization
+def download_payments_template(request):
+    organization = request.organization
+    trainer_choices = [
+        f"{trainer.pk} - {trainer.full_name}"
+        for trainer in Trainer.objects.filter(organization=organization).order_by("first_name", "last_name")
+    ]
+    return _excel_template_response(
+        "payments_template.xlsx",
+        "المدفوعات",
+        ["المتدرب (رقم - الاسم)", "تاريخ الدفع", "نوع الدفع", "المبلغ"],
+        {
+            1: ("Trainees", trainer_choices),
+            3: ("PaymentCategories", [label for _, label in Payments.CatChoices]),
+        },
+        [2],
+        [
+            "اختر المتدرب من القائمة، ثم أدخل بيانات الدفع في صف مستقل.",
+            "اختر نوع الدفع من القائمة.",
+            "أدخل تاريخ الدفع بصيغة YYYY-MM-DD.",
+        ],
+    )
+
+
+def _parse_excel_date(value, field_label):
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value.strip())
+        except ValueError as exc:
+            raise ValueError(f"{field_label}: استخدم الصيغة YYYY-MM-DD.") from exc
+    raise ValueError(f"{field_label}: استخدم الصيغة YYYY-MM-DD.")
+
+
 #upload trainers from excel
 @login_required(login_url='/login/')
 @require_organization
@@ -1752,6 +1901,9 @@ def upload_trainers_excel(request):
             added_count = 0
             for i, row in enumerate(sheet.iter_rows(min_row=2), start=2):  # Skip header
                 try:
+                    if not any(cell.value not in (None, "") for cell in row):
+                        continue
+
                     first_name = row[0].value
                     last_name = row[1].value
                     birthday = row[2].value
@@ -1766,32 +1918,47 @@ def upload_trainers_excel(request):
                     category = row[11].value
                     height = row[12].value or 0
                     weight = row[13].value or 0
+                    started_day = row[14].value if len(row) > 14 else None
 
-                    if first_name and last_name and birthday and gender and education and category:
-                        Trainer.objects.create(
-                            organization = org,
-                            first_name=first_name,
-                            last_name=last_name,
-                            birth_day=birthday,
-                            phone=phone,
-                            phone_parent=phone_parent,
-                            email=email,
-                            address=address,
-                            CIN=cin,
-                            male_female=gender,
-                            belt_degree=belt,
-                            Degree=education,
-                            category=category,
-                            started_day=datetime.today(),
-                            tall=height,
-                            weight=weight
-                        )
-                        added_count += 1
+                    if not all((first_name, last_name, birthday, gender, education, category)):
+                        raise ValueError("الاسم الأول واسم العائلة وتاريخ الميلاد والجنس والمستوى التعليمي والفئة مطلوبة.")
+
+                    gender_values = {"ذكر": "male", "أنثى": "female", "male": "male", "female": "female"}
+                    gender = gender_values.get(str(gender).strip())
+                    if not gender:
+                        raise ValueError("الجنس غير صالح؛ اختر ذكر أو أنثى.")
+
+                    category = str(category).strip()
+                    if category not in dict(Trainer.CatChoices):
+                        raise ValueError("الفئة غير صالحة؛ اخترها من القائمة.")
+
+                    if belt and belt not in dict(Trainer.belts):
+                        raise ValueError("درجة الحزام غير صالحة؛ اخترها من القائمة.")
+
+                    Trainer.objects.create(
+                        organization=org,
+                        first_name=first_name,
+                        last_name=last_name,
+                        birth_day=_parse_excel_date(birthday, "تاريخ الميلاد"),
+                        phone=phone,
+                        phone_parent=phone_parent,
+                        email=email,
+                        address=address,
+                        CIN=cin,
+                        male_female=gender,
+                        belt_degree=belt or None,
+                        Degree=education,
+                        category=category,
+                        started_day=_parse_excel_date(started_day, "تاريخ الانضمام") if started_day else date.today(),
+                        tall=height,
+                        weight=weight,
+                    )
+                    added_count += 1
                 except Exception as row_err:
                     messages.warning(request, f"خطأ في الصف {i}: {str(row_err)}")
 
             messages.success(request, f"تمت إضافة {added_count} مدرب(ة) بنجاح.")
-            return redirect('upload_trainers_excel')  # replace with your actual URL name
+            return redirect("upload_data")
 
         except Exception as e:
             messages.error(request, f"حدث خطأ أثناء قراءة الملف: {str(e)}")
@@ -1813,17 +1980,30 @@ def upload_payments_excel(request):
             added = 0
             for i, row in enumerate(sheet.iter_rows(min_row=2), start=2):  # skip headers
                 try:
+                    if not any(cell.value not in (None, "") for cell in row):
+                        continue
+
                     trainer_id = row[0].value
-                    payment_date = row[1].value or datetime.today()
-                    payment_category = row[2].value or 'month'
+                    payment_date = row[1].value or date.today()
+                    payment_category = row[2].value or "month"
                     payment_amount = row[3].value or 0
 
-                    trainer = Trainer.objects.get(id=trainer_id)
+                    if isinstance(trainer_id, str):
+                        trainer_id = trainer_id.split(" - ", 1)[0].strip()
+                    trainer = Trainer.objects.get(id=int(trainer_id), organization=org)
+
+                    payment_categories = {
+                        value: value for value, _ in Payments.CatChoices
+                    }
+                    payment_categories.update({label: value for value, label in Payments.CatChoices})
+                    payment_category = payment_categories.get(str(payment_category).strip())
+                    if not payment_category:
+                        raise ValueError("نوع الدفع غير صالح؛ اختره من القائمة.")
 
                     Payments.objects.create(
                         organization=org,
                         trainer=trainer,
-                        paymentdate=payment_date,
+                        paymentdate=_parse_excel_date(payment_date, "تاريخ الدفع"),
                         paymentCategry=payment_category,
                         paymentAmount=payment_amount
                     )
@@ -1832,7 +2012,7 @@ def upload_payments_excel(request):
                     messages.warning(request, f"⚠️ خطأ في الصف {i}: {str(e)}")
 
             messages.success(request, f"✅ تمت إضافة {added} دفعة بنجاح.")
-            return redirect('upload_payments_excel')  # change to your actual URL name
+            return redirect("upload_payments")
 
         except Exception as e:
             messages.error(request, f"فشل رفع الملف: {str(e)}")
