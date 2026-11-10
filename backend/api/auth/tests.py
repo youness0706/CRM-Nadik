@@ -34,6 +34,15 @@ class LoginTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('access', response.data)
 
+    def test_website_login_persists_session_for_30_days_without_remember_checkbox(self):
+        response = self.client.post('/login/', {
+            'username': self.user.username,
+            'password': 'CorrectHorseBattery9',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.client.session.get_expiry_age(), 30 * 24 * 60 * 60)
+
     def test_register_creates_trial_organization_owner_and_tokens(self):
         response = self.client.post('/api/v1/auth/register/', {
             'username': 'new-owner',
@@ -80,6 +89,8 @@ class LoginTests(TestCase):
         }, format='json')
         self.assertEqual(refreshed.status_code, 200, refreshed.data)
         self.assertIn('access', refreshed.data)
+        self.assertIn('refresh', refreshed.data)
+        self.assertNotEqual(refreshed.data['refresh'], login.data['refresh'])
 
         logout = self.client.post('/api/v1/auth/logout/', {
             'refresh': refreshed.data['refresh'],

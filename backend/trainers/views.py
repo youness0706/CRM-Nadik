@@ -1313,14 +1313,7 @@ def login_view(request):
             # Login first
             login(request, user)
             
-            # Handle "Remember Me" checkbox
-           
-            if 'remember_me' in request.POST:
-                # Set session to persist for 30 days
-                request.session.set_expiry(30 * 24 * 60 * 60)  # 30 days in seconds
-            else:
-                # Session expires when browser closes
-                request.session.set_expiry(0)
+            request.session.set_expiry(30 * 24 * 60 * 60)
             
             # Now check if the user has a staff record
             try:

@@ -17,6 +17,7 @@ const apiClient = axios.create({
 // The layout is remounted on navigation, so without this cache every page
 // transition made another round trip to the backend for the same user data.
 let currentUserPromise = null;
+let refreshTokenPromise = null;
 
 export const getCurrentUser = (force = false) => {
   if (!force && currentUserPromise) return currentUserPromise;
@@ -70,13 +71,20 @@ apiClient.interceptors.response.use(
       
       if (refreshToken) {
         try {
-          // Use axios directly to avoid interceptor loop
-          const response = await axios.post(`${API_BASE_URL}/auth/refresh/`, {
-            refresh: refreshToken
-          });
-          
-          const newAccessToken = response.data.access;
-          localStorage.setItem('access_token', newAccessToken);
+          if (!refreshTokenPromise) {
+            refreshTokenPromise = axios.post(`${API_BASE_URL}/auth/refresh/`, {
+              refresh: refreshToken
+            }).then(({ data }) => {
+              localStorage.setItem('access_token', data.access);
+              if (data.refresh) {
+                localStorage.setItem('refresh_token', data.refresh);
+              }
+              return data.access;
+            }).finally(() => {
+              refreshTokenPromise = null;
+            });
+          }
+          const newAccessToken = await refreshTokenPromise;
           
           // Retry original request with new token
           originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
