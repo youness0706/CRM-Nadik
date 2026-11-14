@@ -98,7 +98,9 @@ Organization admins can upload a PNG, JPG, or WebP logo (up to 5 MB) from **Sett
 
 On the Payments screen, filter by payment type, trainee, and dates, then choose **Paid** or **Unpaid** and select **Export Word**. Unpaid exports list active trainees with no payment matching the selected type and period; if no dates are selected, the current month is used. Individual payment invoices can be downloaded from each payment row.
 
-The corresponding authenticated endpoints are `GET /api/v1/crm/payments/export/docx/` and `GET /api/v1/crm/payments/{id}/invoice/`.
+The corresponding authenticated endpoints are `GET /api/v1/crm/payments/export/docx/` and `GET /api/v1/crm/payments/{id}/invoice/`. Organization staff can also bulk-delete selected records with `POST /api/v1/crm/members/bulk-delete/` or `POST /api/v1/crm/payments/bulk-delete/`, passing `{"ids": [1, 2]}`. The API only deletes records belonging to the caller's organization and rejects the whole request if any selected ID is unavailable.
+
+The trainee Excel importer matches existing trainees by case-insensitive first and last name within the caller's organization. Matching trainees are updated; new names are created. Its response reports both `created` and `updated` counts.
 
 ## Important Note on Security
 

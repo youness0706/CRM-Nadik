@@ -4,7 +4,7 @@ import {
   TableRow, Button, Box, Chip, TextField, CircularProgress,
   FormControl, InputLabel, Select, MenuItem, TablePagination,
   IconButton, Tooltip, Snackbar, Alert, Autocomplete,
-  Card, CardContent, useMediaQuery, useTheme, Stack
+  Card, CardContent, useMediaQuery, useTheme, Stack, Checkbox
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -32,6 +32,8 @@ export default function PaymentList() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
   const [members, setMembers] = useState([]);
   const [selectedMember, setSelectedMember] = useState(null);
@@ -147,6 +149,46 @@ export default function PaymentList() {
     }
   };
 
+  const togglePaymentSelection = (id) => {
+    setSelectedIds((current) => (
+      current.includes(id) ? current.filter((selectedId) => selectedId !== id) : [...current, id]
+    ));
+  };
+
+  const togglePageSelection = () => {
+    const pageIds = payments.map((payment) => payment.id);
+    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+    setSelectedIds((current) => (
+      allSelected
+        ? current.filter((id) => !pageIds.includes(id))
+        : [...new Set([...current, ...pageIds])]
+    ));
+  };
+
+  const handleBulkDelete = async () => {
+    if (bulkDeleting || selectedIds.length === 0) return;
+    if (!window.confirm(`${t('Delete selected payments')} (${selectedIds.length})?`)) return;
+    setBulkDeleting(true);
+    try {
+      await apiClient.post('/crm/payments/bulk-delete/', { ids: selectedIds });
+      setSelectedIds([]);
+      setToast({
+        open: true,
+        message: `${selectedIds.length} ${t('Selected payments deleted.')}`,
+        severity: 'success',
+      });
+      refresh();
+    } catch (requestError) {
+      setToast({
+        open: true,
+        message: getApiErrorMessage(requestError, t('Failed to delete selected payments.')),
+        severity: 'error',
+      });
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const handleDialogSuccess = () => {
     setDialogOpen(false);
     setToast({ open: true, message: selectedPayment ? t('Saved successfully.') : t('Saved successfully.'), severity: 'success' });
@@ -154,7 +196,7 @@ export default function PaymentList() {
   };
 
   return (
-    <Box>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, gap: 1 }}>
         <Typography variant="h4" fontWeight="bold">{t('Payments')}</Typography>
         <Button variant="contained" startIcon={<AddIcon />} size={isMobile ? 'medium' : 'large'} onClick={handleAddClick} sx={{ flexShrink: 0 }}>
@@ -222,6 +264,21 @@ export default function PaymentList() {
         >
           {t('Export Word')}
         </Button>
+        {selectedIds.length > 0 && (
+          <>
+            <Chip label={`${selectedIds.length} ${t('selected')}`} color="primary" variant="outlined" />
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={bulkDeleting ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon />}
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+            >
+              {t('Delete selected payments')}
+            </Button>
+            <Button onClick={() => setSelectedIds([])} disabled={bulkDeleting}>{t('Clear selection')}</Button>
+          </>
+        )}
         <Chip
           label={`${t('Page Total:')} ${pageTotal.toFixed(2)} DH`}
           color="success"
@@ -246,6 +303,12 @@ export default function PaymentList() {
                   <CardContent sx={{ p: '14px 16px !important' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                       <Box>
+                        <Checkbox
+                          size="small"
+                          checked={selectedIds.includes(p.id)}
+                          onChange={() => togglePaymentSelection(p.id)}
+                          inputProps={{ 'aria-label': `${t('Select')} ${p.trainer_name} ${p.trainer_surname}` }}
+                        />
                         <Typography fontWeight={700} sx={{ fontSize: '0.95rem' }}>{p.trainer_name} {p.trainer_surname}</Typography>
                         <Typography variant="caption" color="text.secondary">{p.paymentdate}</Typography>
                       </Box>
@@ -308,6 +371,14 @@ export default function PaymentList() {
           <Table>
             <TableHead>
               <TableRow sx={{ backgroundColor: 'background.default' }}>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={payments.length > 0 && payments.every((payment) => selectedIds.includes(payment.id))}
+                    indeterminate={payments.some((payment) => selectedIds.includes(payment.id)) && !payments.every((payment) => selectedIds.includes(payment.id))}
+                    onChange={togglePageSelection}
+                    inputProps={{ 'aria-label': t('Select all on this page') }}
+                  />
+                </TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('Member')}</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('Date')}</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('Type')}</TableCell>
@@ -318,19 +389,26 @@ export default function PaymentList() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
                     <CircularProgress />
                   </TableCell>
                 </TableRow>
               ) : payments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
                     <Typography color="text.secondary">{t('No payments found.')}</Typography>
                   </TableCell>
                 </TableRow>
               ) : (
                 payments.map((p) => (
                   <TableRow key={p.id} hover>
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        checked={selectedIds.includes(p.id)}
+                        onChange={() => togglePaymentSelection(p.id)}
+                        inputProps={{ 'aria-label': `${t('Select')} ${p.trainer_name} ${p.trainer_surname}` }}
+                      />
+                    </TableCell>
                     <TableCell sx={{ fontWeight: 500 }}>{p.trainer_name} {p.trainer_surname}</TableCell>
                     <TableCell>{p.paymentdate}</TableCell>
                     <TableCell>

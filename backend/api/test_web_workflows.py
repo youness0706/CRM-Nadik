@@ -120,6 +120,39 @@ class WebWorkflowContractTests(TestCase):
         self.assertEqual(imported.phone, '0612345678')
         self.assertEqual(imported.email, 'salma@example.com')
 
+    def test_excel_import_updates_existing_trainee_by_case_insensitive_name(self):
+        existing = self.create_member('Amina', 'Test')
+        existing.phone = '0611111111'
+        existing.save()
+        other_organization = OrganizationInfo.objects.create(name='Other Club', slug='other-club')
+        other_member = Trainer.objects.create(
+            organization=other_organization,
+            first_name='Amina',
+            last_name='Test',
+            male_female='male',
+            category='كبار',
+        )
+        excel_file = self.create_excel_upload([
+            ['first_name', 'last_name', 'gender', 'email'],
+            [' amina ', ' TEST ', 'female', 'amina@example.com'],
+        ])
+
+        response = self.client.post(
+            '/api/v1/crm/members/import-excel/',
+            {'file': excel_file},
+            format='multipart',
+        )
+
+        self.assertEqual(response.status_code, 200, msg=response.data)
+        self.assertEqual(response.data, {'created': 0, 'updated': 1})
+        existing.refresh_from_db()
+        self.assertEqual(existing.male_female, 'female')
+        self.assertEqual(existing.email, 'amina@example.com')
+        self.assertEqual(existing.phone, '0611111111')
+        self.assertEqual(Trainer.objects.filter(organization=self.organization).count(), 1)
+        other_member.refresh_from_db()
+        self.assertEqual(other_member.male_female, 'male')
+
     def test_excel_import_is_atomic_when_a_row_is_invalid(self):
         excel_file = self.create_excel_upload([
             ['first_name', 'last_name', 'gender'],
@@ -159,6 +192,72 @@ class WebWorkflowContractTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual({member['id'] for member in response.data['results']}, {active_member.id, inactive_member.id})
+
+    def test_bulk_delete_members_is_organization_scoped_and_atomic(self):
+        first_member = self.create_member('First', 'Member')
+        second_member = self.create_member('Second', 'Member')
+        other_organization = OrganizationInfo.objects.create(name='Other Club', slug='other-club')
+        other_member = Trainer.objects.create(
+            organization=other_organization,
+            first_name='Other',
+            last_name='Member',
+            male_female='male',
+            category='كبار',
+        )
+
+        response = self.client.post(
+            '/api/v1/crm/members/bulk-delete/',
+            {'ids': [first_member.id, other_member.id]},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(Trainer.objects.filter(pk=first_member.id).exists())
+        self.assertTrue(Trainer.objects.filter(pk=other_member.id).exists())
+
+        response = self.client.post(
+            '/api/v1/crm/members/bulk-delete/',
+            [first_member.id],
+            format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+
+        response = self.client.post(
+            '/api/v1/crm/members/bulk-delete/',
+            {'ids': [first_member.id, second_member.id]},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 200, msg=response.data)
+        self.assertEqual(response.data['deleted'], 2)
+        self.assertFalse(Trainer.objects.filter(pk__in=[first_member.id, second_member.id]).exists())
+
+    def test_bulk_delete_payments(self):
+        member = self.create_member('Payment', 'Member')
+        first_payment = Payments.objects.create(
+            organization=self.organization,
+            trainer=member,
+            paymentdate='2026-02-05',
+            paymentCategry='month',
+            paymentAmount='100.00',
+        )
+        second_payment = Payments.objects.create(
+            organization=self.organization,
+            trainer=member,
+            paymentdate='2026-03-05',
+            paymentCategry='month',
+            paymentAmount='100.00',
+        )
+
+        response = self.client.post(
+            '/api/v1/crm/payments/bulk-delete/',
+            {'ids': [first_payment.id, second_payment.id]},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 200, msg=response.data)
+        self.assertEqual(response.data['deleted'], 2)
+        self.assertFalse(Payments.objects.filter(pk__in=[first_payment.id, second_payment.id]).exists())
 
     def test_financial_summary_reconciles_income_expenses_and_event_participants(self):
         first_member = self.create_member('First', 'Participant')

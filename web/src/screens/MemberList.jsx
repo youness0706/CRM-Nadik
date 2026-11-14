@@ -4,7 +4,7 @@ import {
   TableRow, Button, Box, Chip, TextField, InputAdornment,
   CircularProgress, ToggleButtonGroup, ToggleButton, FormControl, InputLabel,
   Select, MenuItem, TablePagination, IconButton, Tooltip, Snackbar, Alert,
-  Card, CardContent, useMediaQuery, useTheme, Stack, Avatar
+  Card, CardContent, useMediaQuery, useTheme, Stack, Avatar, Checkbox
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -37,6 +37,8 @@ export default function MemberList() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [excelImporting, setExcelImporting] = useState(false);
   const [templateDownloading, setTemplateDownloading] = useState(false);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
@@ -79,6 +81,46 @@ export default function MemberList() {
     }
   };
 
+  const toggleMemberSelection = (id) => {
+    setSelectedIds((current) => (
+      current.includes(id) ? current.filter((selectedId) => selectedId !== id) : [...current, id]
+    ));
+  };
+
+  const togglePageSelection = () => {
+    const pageIds = members.map((member) => member.id);
+    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+    setSelectedIds((current) => (
+      allSelected
+        ? current.filter((id) => !pageIds.includes(id))
+        : [...new Set([...current, ...pageIds])]
+    ));
+  };
+
+  const handleBulkDelete = async () => {
+    if (bulkDeleting || selectedIds.length === 0) return;
+    if (!window.confirm(`${t('Delete selected members')} (${selectedIds.length})?`)) return;
+    setBulkDeleting(true);
+    try {
+      await apiClient.post('/crm/members/bulk-delete/', { ids: selectedIds });
+      setSelectedIds([]);
+      setToast({
+        open: true,
+        message: `${selectedIds.length} ${t('Selected members deleted.')}`,
+        severity: 'success',
+      });
+      refresh();
+    } catch (requestError) {
+      setToast({
+        open: true,
+        message: getApiErrorMessage(requestError, t('Failed to delete selected members.')),
+        severity: 'error',
+      });
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const handleDialogSuccess = () => {
     setDialogOpen(false);
     setToast({ open: true, message: selectedMember ? t('Member updated successfully.') : t('Member added successfully.'), severity: 'success' });
@@ -97,9 +139,14 @@ export default function MemberList() {
       const response = await apiClient.post('/crm/members/import-excel/', payload, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      const { created = 0, updated = 0 } = response.data;
+      const importSummary = [
+        created > 0 ? `${created} ${t('Trainees imported successfully.')}` : '',
+        updated > 0 ? `${updated} ${t('Trainees updated successfully.')}` : '',
+      ].filter(Boolean).join(', ');
       setToast({
         open: true,
-        message: `${response.data.created} ${t('Trainees imported successfully.')}`,
+        message: importSummary,
         severity: 'success',
       });
       refresh();
@@ -154,6 +201,21 @@ export default function MemberList() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, mb: 2.5, gap: 1, flexWrap: 'wrap' }}>
         <Typography variant="h4" fontWeight="bold">{t('Members')}</Typography>
         <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+          {selectedIds.length > 0 && (
+            <>
+              <Chip label={`${selectedIds.length} ${t('selected')}`} color="primary" variant="outlined" />
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={bulkDeleting ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon />}
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+              >
+                {t('Delete selected members')}
+              </Button>
+              <Button onClick={() => setSelectedIds([])} disabled={bulkDeleting}>{t('Clear selection')}</Button>
+            </>
+          )}
           <Button
             variant="outlined"
             startIcon={<DownloadIcon />}
@@ -244,6 +306,13 @@ export default function MemberList() {
                   <CardContent sx={{ p: '14px 16px !important' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                       <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'center', minWidth: 0 }}>
+                        <Checkbox
+                          size="small"
+                          checked={selectedIds.includes(m.id)}
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={() => toggleMemberSelection(m.id)}
+                          inputProps={{ 'aria-label': `${t('Select')} ${m.first_name} ${m.last_name}` }}
+                        />
                         <Avatar src={m.image || undefined} alt={`${m.first_name} ${m.last_name}`} />
                         <Box sx={{ minWidth: 0 }}>
                           <Typography fontWeight={700} sx={{ fontSize: '1rem', color: 'text.primary' }}>{m.first_name} {m.last_name}</Typography>
@@ -309,6 +378,14 @@ export default function MemberList() {
           <Table>
             <TableHead>
               <TableRow>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={members.length > 0 && members.every((member) => selectedIds.includes(member.id))}
+                    indeterminate={members.some((member) => selectedIds.includes(member.id)) && !members.every((member) => selectedIds.includes(member.id))}
+                    onChange={togglePageSelection}
+                    inputProps={{ 'aria-label': t('Select all on this page') }}
+                  />
+                </TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('Name')}</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('Phone')}</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>{t('Category')}</TableCell>
@@ -320,9 +397,9 @@ export default function MemberList() {
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 6 }}><CircularProgress /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} align="center" sx={{ py: 6 }}><CircularProgress /></TableCell></TableRow>
               ) : members.length === 0 ? (
-                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 6 }}><Typography color="text.secondary">{t('No members found.')}</Typography></TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} align="center" sx={{ py: 6 }}><Typography color="text.secondary">{t('No members found.')}</Typography></TableCell></TableRow>
               ) : (
                 members.map((m) => (
                   <TableRow
@@ -339,6 +416,13 @@ export default function MemberList() {
                     }}
                     sx={{ cursor: 'pointer' }}
                   >
+                    <TableCell padding="checkbox" onClick={(event) => event.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedIds.includes(m.id)}
+                        onChange={() => toggleMemberSelection(m.id)}
+                        inputProps={{ 'aria-label': `${t('Select')} ${m.first_name} ${m.last_name}` }}
+                      />
+                    </TableCell>
                     <TableCell sx={{ fontWeight: 500 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
                         <Avatar src={m.image || undefined} alt={`${m.first_name} ${m.last_name}`} sx={{ width: 36, height: 36 }} />

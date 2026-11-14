@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.exceptions import PermissionDenied
@@ -56,6 +58,31 @@ class BaseOrganizationViewSet(viewsets.ModelViewSet):
         org = self.get_organization()
         serializer.save(organization=org)
 
+    def _bulk_delete(self, request):
+        ids = request.data.get('ids') if isinstance(request.data, Mapping) else None
+        if (
+            not isinstance(ids, list)
+            or not ids
+            or any(not isinstance(record_id, int) or isinstance(record_id, bool) or record_id <= 0 for record_id in ids)
+        ):
+            return Response(
+                {'error': 'Provide a non-empty list of valid record IDs.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        unique_ids = set(ids)
+        queryset = self.get_queryset().filter(pk__in=unique_ids)
+        selected_count = queryset.count()
+        if selected_count != len(unique_ids):
+            return Response(
+                {'error': 'One or more selected records could not be found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        with transaction.atomic():
+            queryset.delete()
+        return Response({'deleted': selected_count}, status=status.HTTP_200_OK)
+
 
 class StaffViewSet(BaseOrganizationViewSet):
     queryset = Staff.objects.all().select_related('user')
@@ -86,6 +113,10 @@ class TrainerViewSet(BaseOrganizationViewSet):
         if self.action in ('create', 'update', 'partial_update'):
             return TrainerCreateSerializer
         return TrainerSerializer
+
+    @action(detail=False, methods=['post'], url_path='bulk-delete')
+    def bulk_delete(self, request):
+        return self._bulk_delete(request)
 
     @action(detail=False, methods=['get'], url_path='excel-template')
     def excel_template(self, request):
@@ -329,6 +360,7 @@ class TrainerViewSet(BaseOrganizationViewSet):
                 gender_text = str(data.get('male_female', '')).strip().casefold()
                 gender = gender_values.get(gender_text)
                 data['male_female'] = gender
+                row_data = data.copy()
                 data.setdefault('category', 'كبار')
                 data.setdefault('birth_day', None)
                 serializer = TrainerCreateSerializer(data=data)
@@ -379,7 +411,7 @@ class TrainerViewSet(BaseOrganizationViewSet):
                         'errors': translated_errors,
                     })
                 else:
-                    valid_rows.append(serializer)
+                    valid_rows.append((serializer, row_data))
         except (InvalidFileException, BadZipFile):
             return Response(
                 {'error': 'The uploaded file is not a valid .xlsx workbook. / ملف Excel غير صالح.'},
@@ -403,10 +435,31 @@ class TrainerViewSet(BaseOrganizationViewSet):
             )
 
         organization = self.get_organization()
+        created_count = 0
+        updated_count = 0
         with transaction.atomic():
-            for serializer in valid_rows:
-                serializer.save(organization=organization)
-        return Response({'created': len(valid_rows)}, status=status.HTTP_201_CREATED)
+            for serializer, row_data in valid_rows:
+                existing = Trainer.objects.filter(
+                    organization=organization,
+                    first_name__iexact=serializer.validated_data['first_name'],
+                    last_name__iexact=serializer.validated_data['last_name'],
+                ).order_by('id').first()
+                if existing:
+                    update_serializer = TrainerCreateSerializer(
+                        existing,
+                        data=row_data,
+                        partial=True,
+                    )
+                    update_serializer.is_valid(raise_exception=True)
+                    update_serializer.save()
+                    updated_count += 1
+                else:
+                    serializer.save(organization=organization)
+                    created_count += 1
+        return Response(
+            {'created': created_count, 'updated': updated_count},
+            status=status.HTTP_201_CREATED if created_count else status.HTTP_200_OK,
+        )
 
     def get_queryset(self):
         org = self.get_organization()
@@ -452,6 +505,10 @@ class PaymentViewSet(BaseOrganizationViewSet):
             qs = qs.filter(trainer_id=trainer_id)
 
         return qs
+
+    @action(detail=False, methods=['post'], url_path='bulk-delete')
+    def bulk_delete(self, request):
+        return self._bulk_delete(request)
 
     @action(detail=False, methods=['get'], url_path='export/docx')
     def export_docx(self, request):
@@ -896,58 +953,87 @@ def financial_summary(request):
 
     today = timezone.now().date()
     year = int(request.query_params.get('year', today.year))
+    year_start = datetime(year, 1, 1).date()
+    next_year_start = datetime(year + 1, 1, 1).date()
+    year_end = next_year_start - timedelta(days=1)
+    year_start_datetime = timezone.make_aware(datetime.combine(year_start, datetime.min.time()))
+    next_year_start_datetime = timezone.make_aware(datetime.combine(next_year_start, datetime.min.time()))
 
-    amount_field = DecimalField(max_digits=14, decimal_places=2)
-    yearly_payments = Payments.objects.filter(organization=org, paymentdate__year=year)
-    yearly_added = Addedpay.objects.filter(organization=org, date__year=year)
-    yearly_costs = Costs.objects.filter(organization=org, date__year=year)
-    yearly_articles = Article.objects.filter(organization=org, date__year=year).annotate(
-        participant_count=Count('trainees', distinct=True),
+    cache_key = f'nadik:financial:v2:organization:{org.pk}:year:{year}'
+    user_cache_key = f'nadik:financial:v2:user:{request.user.pk}:year:{year}'
+    cached_summary = cache.get(user_cache_key) or cache.get(cache_key)
+    if cached_summary is not None:
+        return Response(cached_summary)
+
+    # Read each source table once. The old implementation executed four
+    # aggregate queries for every month, which made this page especially slow
+    # over a remote database connection.
+    monthly = {
+        month: {'payments': 0, 'additional_income': 0, 'operating_expenses': 0,
+                'event_income': 0, 'event_expenses': 0}
+        for month in range(1, 13)
+    }
+
+    for payment_date, amount in Payments.objects.filter(
+        organization=org,
+        paymentdate__gte=year_start,
+        paymentdate__lt=next_year_start,
+    ).values_list('paymentdate', 'paymentAmount'):
+        monthly[payment_date.month]['payments'] += amount
+
+    for payment_date, amount in Addedpay.objects.filter(
+        organization=org,
+        date__gte=year_start_datetime,
+        date__lt=next_year_start_datetime,
+    ).values_list('date', 'amount'):
+        monthly[payment_date.month]['additional_income'] += amount
+
+    for expense_date, amount in Costs.objects.filter(
+        organization=org,
+        date__gte=year_start_datetime,
+        date__lt=next_year_start_datetime,
+    ).values_list('date', 'amount'):
+        monthly[expense_date.month]['operating_expenses'] += amount
+
+    yearly_articles = Article.objects.filter(
+        organization=org,
+        date__gte=year_start,
+        date__lt=next_year_start,
+    ).annotate(participant_count=Count('trainees', distinct=True)).values_list(
+        'date', 'participetion_price', 'participant_count', 'costs'
     )
+    for article_date, participation_price, participant_count, costs in yearly_articles:
+        monthly[article_date.month]['event_income'] += participation_price * participant_count
+        monthly[article_date.month]['event_expenses'] += costs
 
-    payment_total = yearly_payments.aggregate(total=Sum('paymentAmount'))['total'] or 0
-    added_total = yearly_added.aggregate(total=Sum('amount'))['total'] or 0
-    operating_cost_total = yearly_costs.aggregate(total=Sum('amount'))['total'] or 0
-    article_totals = yearly_articles.aggregate(
-        participation_income=Sum(F('participetion_price') * F('participant_count'), output_field=amount_field),
-        costs=Sum('costs'),
-    )
-    event_income_total = article_totals['participation_income'] or 0
-    event_cost_total = article_totals['costs'] or 0
+    payment_total = sum(values['payments'] for values in monthly.values())
+    added_total = sum(values['additional_income'] for values in monthly.values())
+    operating_cost_total = sum(values['operating_expenses'] for values in monthly.values())
+    event_income_total = sum(values['event_income'] for values in monthly.values())
+    event_cost_total = sum(values['event_expenses'] for values in monthly.values())
 
-    # Monthly income and expense series for report charts.
     monthly_income = []
     monthly_breakdown = []
-    for m in range(1, 13):
-        payments_income = yearly_payments.filter(paymentdate__month=m).aggregate(total=Sum('paymentAmount'))['total'] or 0
-        additional_income = yearly_added.filter(date__month=m).aggregate(total=Sum('amount'))['total'] or 0
-        operating_expenses = yearly_costs.filter(date__month=m).aggregate(total=Sum('amount'))['total'] or 0
-        article_month = yearly_articles.filter(date__month=m).aggregate(
-            participation_income=Sum(F('participetion_price') * F('participant_count'), output_field=amount_field),
-            costs=Sum('costs'),
-        )
-        event_income = article_month['participation_income'] or 0
-        event_expenses = article_month['costs'] or 0
-        month_income = payments_income + additional_income + event_income
-        month_expenses = operating_expenses + event_expenses
-        monthly_income.append({'month': m, 'income': float(month_income)})
+    for month in range(1, 13):
+        values = monthly[month]
+        month_income = values['payments'] + values['additional_income'] + values['event_income']
+        month_expenses = values['operating_expenses'] + values['event_expenses']
+        monthly_income.append({'month': month, 'income': float(month_income)})
         monthly_breakdown.append({
-            'month': m,
+            'month': month,
             'income': float(month_income),
-            'payments': float(payments_income),
-            'additional_income': float(additional_income),
-            'event_income': float(event_income),
+            'payments': float(values['payments']),
+            'additional_income': float(values['additional_income']),
+            'event_income': float(values['event_income']),
             'expenses': float(month_expenses),
-            'operating_expenses': float(operating_expenses),
-            'event_expenses': float(event_expenses),
+            'operating_expenses': float(values['operating_expenses']),
+            'event_expenses': float(values['event_expenses']),
             'net': float(month_income - month_expenses),
         })
 
     total_income = payment_total + added_total + event_income_total
 
     # Project recurring salary and rent commitments into the selected year.
-    year_start = datetime(year, 1, 1).date()
-    year_end = datetime(year, 12, 31).date()
     total_salaries = 0
     for salary, started in Staff.objects.filter(organization=org).values_list('salary', 'started'):
         started_date = started.date() if isinstance(started, datetime) else started
@@ -965,7 +1051,7 @@ def financial_summary(request):
     total_expenses = operating_cost_total + event_cost_total + total_salaries + rent
     rent = float(rent)
 
-    return Response({
+    summary = {
         'year': year,
         'monthly_income': monthly_income,
         'monthly_breakdown': monthly_breakdown,
@@ -986,4 +1072,7 @@ def financial_summary(request):
         'total_salaries': float(total_salaries),
         'rent': rent,
         'net_profit': float(total_income) - float(total_expenses),
-    })
+    }
+    cache.set(cache_key, summary, timeout=30)
+    cache.set(user_cache_key, summary, timeout=30)
+    return Response(summary)

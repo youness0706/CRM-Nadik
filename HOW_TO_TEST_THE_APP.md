@@ -45,12 +45,12 @@ These are development-only credentials. Change or remove them before any shared 
 Sign in as `orguser`.
 
 1. **Dashboard:** Confirm the organization name and KPI totals load. If the subscription date has passed, confirm it says expired/overdue rather than “expires today.”
-2. **Members / trainees:** Add a disposable trainee with first name, last name, date of birth, and phone. Confirm the success message and row appear. Search by a unique name and confirm unrelated trainees disappear. Check Active/Inactive and Category filters.
-3. **Edit and delete trainee:** Edit a non-sensitive field and save. Confirm it persists after reloading. Delete only the disposable trainee and confirm it no longer appears.
+2. **Members / trainees:** Add a disposable trainee with first name, last name, date of birth, and phone. Confirm the success message and row appear. Search by a unique name and confirm unrelated trainees disappear. Check Active/Inactive and Category filters. Import an Excel row with the same first and last names but different capitalization and an updated field; confirm the existing trainee is updated rather than duplicated.
+3. **Edit and delete trainees:** Edit a non-sensitive field and save. Confirm it persists after reloading. Select two disposable trainees and use the bulk-delete action; confirm both disappear. Avoid selecting any real trainees.
 4. **Trainee photo and documents:** On an existing trainee, upload a small image and a document under 5 MB. Confirm each appears and opens. Delete only the test document and confirm it disappears. The app uses configured Cloudinary storage for these files.
 5. **Staff:** Add a disposable staff account with a unique username/email and temporary password. Confirm it appears with role, salary, start date, and last salary-payment date. Edit a field and delete the test account when finished.
 6. **Permissions:** Sign in as non-admin staff if available. Confirm they can view organization data but cannot create/edit/delete staff. Do not use the platform account for this check.
-7. **Payments:** Record a payment for an existing trainee. Confirm it appears in Payments and dashboard totals. Check date/type filters. Delete only the test payment after checking.
+7. **Payments:** Record at least two disposable payments for an existing trainee. Confirm they appear in Payments and dashboard totals. Check date/type filters. Select both test payments and use the bulk-delete action; confirm both are removed. Avoid selecting any real payments.
 8. **Unpaid:** Change month/year and confirm the unpaid count/list changes according to payment records.
 9. **Finance:** Check the annual report and monthly income values against the payment and expense records you created.
 10. **Expenses and additional payments:** Create one disposable item in each tab. Confirm each appears and page totals change. Remove the test records afterward.
