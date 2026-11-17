@@ -1,25 +1,26 @@
-import React, { useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 
-import Login from './screens/Login';
-import Register from './screens/Register';
-import Dashboard from './screens/Dashboard';
-import PlatformDashboard from './screens/PlatformDashboard';
-import StaffList from './screens/StaffList';
-import MemberList from './screens/MemberList';
-import MemberProfile from './screens/MemberProfile';
-import PaymentList from './screens/PaymentList';
-import UnpaidList from './screens/UnpaidList';
-import ArticleList from './screens/ArticleList';
-import ExpenseList from './screens/ExpenseList';
-import FinancialStatus from './screens/FinancialStatus';
-import Settings from './screens/Settings';
-import PlatformOrganizations from './screens/PlatformOrganizations';
-import PlatformPayments from './screens/PlatformPayments';
 import Layout from './components/Layout';
 import { getCurrentUser } from './services/api';
 import { LanguageProvider } from './state/LanguageContext';
+
+const Login = lazy(() => import('./screens/Login'));
+const Register = lazy(() => import('./screens/Register'));
+const Dashboard = lazy(() => import('./screens/Dashboard'));
+const PlatformDashboard = lazy(() => import('./screens/PlatformDashboard'));
+const StaffList = lazy(() => import('./screens/StaffList'));
+const MemberList = lazy(() => import('./screens/MemberList'));
+const MemberProfile = lazy(() => import('./screens/MemberProfile'));
+const PaymentList = lazy(() => import('./screens/PaymentList'));
+const UnpaidList = lazy(() => import('./screens/UnpaidList'));
+const ArticleList = lazy(() => import('./screens/ArticleList'));
+const ExpenseList = lazy(() => import('./screens/ExpenseList'));
+const FinancialStatus = lazy(() => import('./screens/FinancialStatus'));
+const Settings = lazy(() => import('./screens/Settings'));
+const PlatformOrganizations = lazy(() => import('./screens/PlatformOrganizations'));
+const PlatformPayments = lazy(() => import('./screens/PlatformPayments'));
 
 const theme = createTheme({
   palette: {
@@ -182,23 +183,25 @@ function App() {
       <CssBaseline />
       <LanguageProvider>
         <Router>
-          <Routes>
-          <Route path="/" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/dashboard" element={<ProtectedRoute><DashboardRouter /></ProtectedRoute>} />
-          <Route path="/staff" element={<ProtectedRoute><StaffList /></ProtectedRoute>} />
-          <Route path="/members" element={<ProtectedRoute><MemberList /></ProtectedRoute>} />
-          <Route path="/members/:id" element={<ProtectedRoute><MemberProfile /></ProtectedRoute>} />
-          <Route path="/payments" element={<ProtectedRoute><PaymentList /></ProtectedRoute>} />
-          <Route path="/unpaid" element={<ProtectedRoute><UnpaidList /></ProtectedRoute>} />
-          <Route path="/events" element={<ProtectedRoute><ArticleList /></ProtectedRoute>} />
-          <Route path="/expenses" element={<ProtectedRoute><ExpenseList /></ProtectedRoute>} />
-          <Route path="/financial" element={<ProtectedRoute><FinancialStatus /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          <Route path="/platform/organizations" element={<ProtectedRoute><PlatformOrganizations /></ProtectedRoute>} />
-          <Route path="/platform/payments" element={<ProtectedRoute><PlatformPayments /></ProtectedRoute>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Suspense fallback={null}>
+            <Routes>
+              <Route path="/" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/dashboard" element={<ProtectedRoute><DashboardRouter /></ProtectedRoute>} />
+              <Route path="/staff" element={<ProtectedRoute><StaffList /></ProtectedRoute>} />
+              <Route path="/members" element={<ProtectedRoute><MemberList /></ProtectedRoute>} />
+              <Route path="/members/:id" element={<ProtectedRoute><MemberProfile /></ProtectedRoute>} />
+              <Route path="/payments" element={<ProtectedRoute><PaymentList /></ProtectedRoute>} />
+              <Route path="/unpaid" element={<ProtectedRoute><UnpaidList /></ProtectedRoute>} />
+              <Route path="/events" element={<ProtectedRoute><ArticleList /></ProtectedRoute>} />
+              <Route path="/expenses" element={<ProtectedRoute><ExpenseList /></ProtectedRoute>} />
+              <Route path="/financial" element={<ProtectedRoute><FinancialStatus /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/platform/organizations" element={<ProtectedRoute><PlatformOrganizations /></ProtectedRoute>} />
+              <Route path="/platform/payments" element={<ProtectedRoute><PlatformPayments /></ProtectedRoute>} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </Router>
       </LanguageProvider>
     </ThemeProvider>

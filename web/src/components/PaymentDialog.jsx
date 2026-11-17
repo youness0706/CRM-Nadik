@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button,
-  TextField, Grid, FormControl, InputLabel, Select, MenuItem,
-  CircularProgress, Alert, Autocomplete
+  TextField, Box, FormControl, InputLabel, Select, MenuItem,
+  CircularProgress, Alert, Autocomplete, useMediaQuery, useTheme
 } from '@mui/material';
 import apiClient from '../services/api';
 import { getApiErrorMessage } from '../services/errors';
@@ -24,44 +24,56 @@ const DEFAULT_PAYMENT = {
 
 export default function PaymentDialog({ open, onClose, payment = null, initialTrainer = null, onSuccess }) {
   const { t } = useLanguage();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [formData, setFormData] = useState(DEFAULT_PAYMENT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  
-  // For selecting members
   const [members, setMembers] = useState([]);
-  const [selectedMember, setSelectedMember] = useState(null);
+  const [selectedMembers, setSelectedMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [membersError, setMembersError] = useState('');
-
-  async function fetchMembers(searchQuery, currentMember = initialTrainer) {
-    setLoadingMembers(true);
-    setMembersError('');
-    try {
-      const response = await apiClient.get(`/crm/members/?is_active=true&search=${searchQuery}`);
-      const fetchedMembers = response.data.results || response.data || [];
-      setMembers(currentMember && !fetchedMembers.some((member) => member.id === currentMember.id)
-        ? [currentMember, ...fetchedMembers]
-        : fetchedMembers);
-    } catch (err) {
-      setMembersError(getApiErrorMessage(err, 'Unable to load members.'));
-      console.error('Failed to fetch members:', err);
-    } finally {
-      setLoadingMembers(false);
-    }
-  }
+  const [memberSearch, setMemberSearch] = useState('');
 
   useEffect(() => {
     if (open) {
       const currentMember = payment
         ? { id: payment.trainer, first_name: payment.trainer_name, last_name: payment.trainer_surname }
         : initialTrainer;
-      setFormData(payment ? { ...payment, trainer: payment.trainer } : { ...DEFAULT_PAYMENT, trainer: currentMember?.id || '' });
-      setSelectedMember(currentMember);
+      setFormData(payment
+        ? { ...payment, trainer: payment.trainer }
+        : { ...DEFAULT_PAYMENT, trainer: currentMember?.id || '' });
+      setSelectedMembers(currentMember ? [currentMember] : []);
+      setMemberSearch('');
       setError(null);
-      fetchMembers('', currentMember);
     }
   }, [open, payment, initialTrainer]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const controller = new AbortController();
+    setLoadingMembers(true);
+    setMembersError('');
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const response = await apiClient.get('/crm/members/', {
+          params: { is_active: true, search: memberSearch, per_page: 100 },
+          signal: controller.signal,
+        });
+        setMembers(response.data.results || response.data || []);
+      } catch (requestError) {
+        if (!controller.signal.aborted) {
+          setMembersError(getApiErrorMessage(requestError, 'Unable to load members.'));
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoadingMembers(false);
+      }
+    }, 250);
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [open, memberSearch]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -73,8 +85,9 @@ export default function PaymentDialog({ open, onClose, payment = null, initialTr
     setLoading(true);
     setError(null);
 
-    if (!formData.trainer) {
-      setError('Please select a member.');
+    const trainerIds = selectedMembers.map((member) => member.id);
+    if (trainerIds.length === 0) {
+      setError(t('Please select at least one trainee.'));
       setLoading(false);
       return;
     }
@@ -82,8 +95,15 @@ export default function PaymentDialog({ open, onClose, payment = null, initialTr
     try {
       if (payment && payment.id) {
         await apiClient.put(`/crm/payments/${payment.id}/`, formData);
+      } else if (trainerIds.length > 1) {
+        await apiClient.post('/crm/payments/bulk-create/', {
+          trainer_ids: trainerIds,
+          paymentdate: formData.paymentdate,
+          paymentCategry: formData.paymentCategry,
+          paymentAmount: formData.paymentAmount,
+        });
       } else {
-        await apiClient.post('/crm/payments/', formData);
+        await apiClient.post('/crm/payments/', { ...formData, trainer: trainerIds[0] });
       }
       onSuccess();
     } catch (err) {
@@ -95,47 +115,52 @@ export default function PaymentDialog({ open, onClose, payment = null, initialTr
   };
 
   return (
-    <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="sm" fullWidth fullScreen={isMobile}>
       <form onSubmit={handleSubmit}>
         <DialogTitle>{payment ? t('Edit Payment') : t('Record Payment')}</DialogTitle>
         <DialogContent dividers>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           {membersError && <Alert severity="error" sx={{ mb: 2 }}>{membersError}</Alert>}
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+            <Box sx={{ gridColumn: '1 / -1' }}>
               <Autocomplete
-                options={members}
+                multiple={!payment}
+                disableCloseOnSelect={!payment}
+                limitTags={2}
+                options={[...new Map([...selectedMembers, ...members].map((member) => [member.id, member])).values()]}
                 getOptionLabel={(option) => `${option.first_name} ${option.last_name} (${option.phone || 'No phone'})`}
                 isOptionEqualToValue={(option, value) => option.id === value.id}
-                value={selectedMember}
+                value={payment ? selectedMembers[0] || null : selectedMembers}
                 loading={loadingMembers}
                 onInputChange={(event, newInputValue, reason) => {
-                  if (reason === 'input') fetchMembers(newInputValue);
+                  if (reason === 'input') setMemberSearch(newInputValue);
                 }}
                 onChange={(event, newValue) => {
-                  setSelectedMember(newValue);
-                  setFormData(prev => ({ ...prev, trainer: newValue ? newValue.id : '' }));
+                  const nextMembers = payment ? (newValue ? [newValue] : []) : newValue;
+                  setSelectedMembers(nextMembers);
+                  setFormData((previous) => ({ ...previous, trainer: nextMembers[0]?.id || '' }));
                 }}
                 renderInput={(params) => (
-                  <TextField {...params} label={t('Select Member')} required variant="outlined" />
+                  <TextField
+                    {...params}
+                    label={t(payment ? 'Select Member' : 'Select trainees')}
+                    placeholder={!payment ? t('Search trainees') : ''}
+                    variant="outlined"
+                  />
                 )}
               />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth required>
-                <InputLabel>{t('Payment Type')}</InputLabel>
-                <Select name="paymentCategry" value={formData.paymentCategry} label={t('Payment Type')} onChange={handleChange}>
-                  {PAYMENT_TYPES.map(item => <MenuItem key={item.value} value={item.value}>{t(item.label)}</MenuItem>)}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField fullWidth type="date" required label={t('Date')} name="paymentdate" value={formData.paymentdate} onChange={handleChange} InputLabelProps={{ shrink: true }} />
-            </Grid>
-            <Grid item xs={12}>
+            </Box>
+            <FormControl fullWidth required>
+              <InputLabel>{t('Payment Type')}</InputLabel>
+              <Select name="paymentCategry" value={formData.paymentCategry} label={t('Payment Type')} onChange={handleChange}>
+                {PAYMENT_TYPES.map(item => <MenuItem key={item.value} value={item.value}>{t(item.label)}</MenuItem>)}
+              </Select>
+            </FormControl>
+            <TextField fullWidth type="date" required label={t('Date')} name="paymentdate" value={formData.paymentdate} onChange={handleChange} InputLabelProps={{ shrink: true }} />
+            <Box sx={{ gridColumn: '1 / -1' }}>
               <TextField fullWidth type="number" required label={t('Amount (MAD)')} name="paymentAmount" value={formData.paymentAmount} onChange={handleChange} inputProps={{ step: "0.01", min: "0" }} />
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2, gap: 1 }}>
           <Button onClick={onClose} disabled={loading} variant="outlined">{t('Cancel')}</Button>

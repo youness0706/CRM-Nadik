@@ -38,6 +38,7 @@ export default function PaymentList() {
   const [members, setMembers] = useState([]);
   const [selectedMember, setSelectedMember] = useState(null);
   const [memberSearch, setMemberSearch] = useState('');
+  const [debouncedMemberSearch, setDebouncedMemberSearch] = useState('');
   const [exportStatus, setExportStatus] = useState('paid');
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
@@ -57,20 +58,28 @@ export default function PaymentList() {
   } = usePagination('/crm/payments/', { paymentCategry: 'all', start_date: '', end_date: '' });
 
   useEffect(() => {
-    let active = true;
+    const timeoutId = window.setTimeout(() => setDebouncedMemberSearch(memberSearch), 250);
+    return () => window.clearTimeout(timeoutId);
+  }, [memberSearch]);
+
+  useEffect(() => {
+    const controller = new AbortController();
     const fetchMembers = async () => {
       try {
         const response = await apiClient.get('/crm/members/', {
-          params: { is_active: 'all', search: memberSearch, per_page: 100 },
+          params: { is_active: 'all', search: debouncedMemberSearch, per_page: 100 },
+          signal: controller.signal,
         });
-        if (active) setMembers(response.data.results || response.data || []);
+        setMembers(response.data.results || response.data || []);
       } catch (requestError) {
-        if (active) setExportError(getApiErrorMessage(requestError, 'Unable to load trainees.'));
+        if (!controller.signal.aborted) {
+          setExportError(getApiErrorMessage(requestError, 'Unable to load trainees.'));
+        }
       }
     };
     fetchMembers();
-    return () => { active = false; };
-  }, [memberSearch]);
+    return () => controller.abort();
+  }, [debouncedMemberSearch]);
 
   const saveDownload = (response, filename) => {
     const downloadUrl = window.URL.createObjectURL(new Blob([response.data]));
@@ -196,17 +205,17 @@ export default function PaymentList() {
   };
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, gap: 1 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 0, width: '100%', minWidth: 0 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, gap: 1, flexWrap: 'wrap' }}>
         <Typography variant="h4" fontWeight="bold">{t('Payments')}</Typography>
         <Button variant="contained" startIcon={<AddIcon />} size={isMobile ? 'medium' : 'large'} onClick={handleAddClick} sx={{ flexShrink: 0 }}>
-          {isMobile ? t('Record Payment') : t('Record Payment')}
+          {t('Record Payment')}
         </Button>
       </Box>
 
       {/* Filters */}
-      <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 2.5, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', borderRadius: 2 }}>
-        <FormControl size="small" sx={{ minWidth: 140 }}>
+      <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 2.5, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', borderRadius: 2, width: '100%', minWidth: 0 }}>
+        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 140 } }}>
           <InputLabel>{t('Type')}</InputLabel>
           <Select 
             value={filters.paymentCategry || 'all'} 
@@ -223,14 +232,14 @@ export default function PaymentList() {
           value={filters.start_date || ''}
           onChange={(e) => applyFilter('start_date', e.target.value)}
           InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 130 }}
+          sx={{ minWidth: { xs: '100%', sm: 130 } }}
         />
         <TextField
           size="small" type="date" label={t('To')} 
           value={filters.end_date || ''}
           onChange={(e) => applyFilter('end_date', e.target.value)}
           InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 130 }}
+          sx={{ minWidth: { xs: '100%', sm: 130 } }}
         />
         <Autocomplete
           size="small"
@@ -248,7 +257,7 @@ export default function PaymentList() {
           onInputChange={(event, value) => setMemberSearch(value)}
           renderInput={(params) => <TextField {...params} label={t('Trainee')} />}
         />
-        <FormControl size="small" sx={{ minWidth: 110 }}>
+        <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 110 } }}>
           <InputLabel>{t('List status')}</InputLabel>
           <Select value={exportStatus} label={t('List status')} onChange={(event) => setExportStatus(event.target.value)}>
             <MenuItem value="paid">{t('Paid')}</MenuItem>
@@ -283,7 +292,7 @@ export default function PaymentList() {
           label={`${t('Page Total:')} ${pageTotal.toFixed(2)} DH`}
           color="success"
           variant="outlined"
-          sx={{ fontWeight: 'bold', ml: { xs: 0, sm: 'auto' } }}
+          sx={{ fontWeight: 'bold', ml: { xs: 0, sm: 'auto' }, maxWidth: '100%' }}
         />
       </Paper>
 
@@ -301,25 +310,29 @@ export default function PaymentList() {
               {payments.map((p) => (
                 <Card key={p.id} sx={{ borderRadius: 2.5, boxShadow: '0 1px 6px rgba(0,0,0,0.07)' }}>
                   <CardContent sx={{ p: '14px 16px !important' }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                      <Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1, gap: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', minWidth: 0 }}>
                         <Checkbox
                           size="small"
                           checked={selectedIds.includes(p.id)}
                           onChange={() => togglePaymentSelection(p.id)}
                           inputProps={{ 'aria-label': `${t('Select')} ${p.trainer_name} ${p.trainer_surname}` }}
                         />
-                        <Typography fontWeight={700} sx={{ fontSize: '0.95rem' }}>{p.trainer_name} {p.trainer_surname}</Typography>
-                        <Typography variant="caption" color="text.secondary">{p.paymentdate}</Typography>
+                        <Box sx={{ minWidth: 0, pt: 0.75 }}>
+                          <Typography fontWeight={700} sx={{ fontSize: '0.95rem', overflowWrap: 'anywhere' }}>
+                            {p.trainer_name} {p.trainer_surname}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">{p.paymentdate}</Typography>
+                        </Box>
                       </Box>
-                      <Box sx={{ textAlign: 'right' }}>
+                      <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
                         <Typography variant="subtitle1" fontWeight={800} color="success.main">
                           {parseFloat(p.paymentAmount).toFixed(2)} DH
                         </Typography>
                         <Chip label={p.category_display || p.paymentCategry} size="small" color="info" sx={{ borderRadius: 1, fontSize: '0.7rem', height: 20 }} />
                       </Box>
                     </Box>
-                    <Box sx={{ display: 'flex', gap: 1, mt: 1.5, justifyContent: 'flex-end', borderTop: '1px solid', borderColor: 'divider', pt: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 0.75, mt: 1.5, justifyContent: 'flex-end', borderTop: '1px solid', borderColor: 'divider', pt: 1, flexWrap: 'wrap' }}>
                       <Button
                         size="small"
                         variant="outlined"

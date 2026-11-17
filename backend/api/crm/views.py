@@ -510,6 +510,52 @@ class PaymentViewSet(BaseOrganizationViewSet):
     def bulk_delete(self, request):
         return self._bulk_delete(request)
 
+    @action(detail=False, methods=['post'], url_path='bulk-create')
+    def bulk_create(self, request):
+        trainer_ids = request.data.get('trainer_ids') if isinstance(request.data, Mapping) else None
+        if (
+            not isinstance(trainer_ids, list)
+            or not trainer_ids
+            or any(not isinstance(trainer_id, int) or isinstance(trainer_id, bool) or trainer_id <= 0 for trainer_id in trainer_ids)
+            or len(set(trainer_ids)) != len(trainer_ids)
+        ):
+            return Response(
+                {'error': 'Provide a non-empty list of unique, valid trainee IDs.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        organization = self.get_organization()
+        trainers = list(Trainer.objects.filter(organization=organization, pk__in=trainer_ids))
+        trainers_by_id = {trainer.pk: trainer for trainer in trainers}
+        if len(trainers_by_id) != len(trainer_ids):
+            return Response(
+                {'error': 'One or more selected trainees could not be found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = self.get_serializer(data={
+            'trainer': trainer_ids[0],
+            'paymentdate': request.data.get('paymentdate'),
+            'paymentCategry': request.data.get('paymentCategry'),
+            'paymentAmount': request.data.get('paymentAmount'),
+        })
+        serializer.is_valid(raise_exception=True)
+        shared_fields = {
+            field: value
+            for field, value in serializer.validated_data.items()
+            if field != 'trainer'
+        }
+        with transaction.atomic():
+            Payments.objects.bulk_create([
+                Payments(
+                    organization=organization,
+                    trainer=trainers_by_id[trainer_id],
+                    **shared_fields,
+                )
+                for trainer_id in trainer_ids
+            ])
+        return Response({'created': len(trainer_ids)}, status=status.HTTP_201_CREATED)
+
     @action(detail=False, methods=['get'], url_path='export/docx')
     def export_docx(self, request):
         organization = self.get_organization()

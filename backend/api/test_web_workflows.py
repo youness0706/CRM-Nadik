@@ -259,6 +259,61 @@ class WebWorkflowContractTests(TestCase):
         self.assertEqual(response.data['deleted'], 2)
         self.assertFalse(Payments.objects.filter(pk__in=[first_payment.id, second_payment.id]).exists())
 
+    def test_bulk_create_payments_is_atomic_and_organization_scoped(self):
+        first_member = self.create_member('First', 'Trainee')
+        second_member = self.create_member('Second', 'Trainee')
+        other_organization = OrganizationInfo.objects.create(name='Other Club', slug='other-club')
+        other_member = Trainer.objects.create(
+            organization=other_organization,
+            first_name='Other',
+            last_name='Trainee',
+            male_female='male',
+            category='كبار',
+        )
+        payment_data = {
+            'trainer_ids': [first_member.id, second_member.id],
+            'paymentdate': '2026-03-05',
+            'paymentCategry': 'month',
+            'paymentAmount': '100.00',
+        }
+
+        response = self.client.post(
+            '/api/v1/crm/payments/bulk-create/',
+            {**payment_data, 'trainer_ids': [first_member.id, other_member.id]},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(Payments.objects.exists())
+
+        response = self.client.post(
+            '/api/v1/crm/payments/bulk-create/',
+            payment_data,
+            format='json',
+        )
+        self.assertEqual(response.status_code, 201, msg=response.data)
+        self.assertEqual(response.data['created'], 2)
+        self.assertEqual(
+            set(Payments.objects.values_list('trainer_id', flat=True)),
+            {first_member.id, second_member.id},
+        )
+
+    def test_bulk_create_payments_rejects_duplicate_trainees(self):
+        member = self.create_member('Repeated', 'Trainee')
+
+        response = self.client.post(
+            '/api/v1/crm/payments/bulk-create/',
+            {
+                'trainer_ids': [member.id, member.id],
+                'paymentdate': '2026-03-05',
+                'paymentCategry': 'month',
+                'paymentAmount': '100.00',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Payments.objects.exists())
+
     def test_financial_summary_reconciles_income_expenses_and_event_participants(self):
         first_member = self.create_member('First', 'Participant')
         second_member = self.create_member('Second', 'Participant')
