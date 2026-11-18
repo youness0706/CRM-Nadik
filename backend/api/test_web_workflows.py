@@ -9,12 +9,14 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 from rest_framework.test import APIClient
+from django.core.cache import cache
 
 from trainers.models import Addedpay, Article, Costs, OrganizationInfo, Payments, Staff, Trainer
 
 
 class WebWorkflowContractTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = APIClient()
         self.user = User.objects.create_user(
             username='workflow-admin',

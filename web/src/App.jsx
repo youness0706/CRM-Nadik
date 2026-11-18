@@ -7,6 +7,7 @@ import { getCurrentUser } from './services/api';
 import { LanguageProvider } from './state/LanguageContext';
 
 const Login = lazy(() => import('./screens/Login'));
+const Landing = lazy(() => import('./screens/Landing'));
 const Register = lazy(() => import('./screens/Register'));
 const Dashboard = lazy(() => import('./screens/Dashboard'));
 const PlatformDashboard = lazy(() => import('./screens/PlatformDashboard'));
@@ -173,7 +174,7 @@ function DashboardRouter() {
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('access_token');
-  if (!token) return <Navigate to="/" replace />;
+  if (!token) return <Navigate to="/login" replace />;
   return <Layout>{children}</Layout>;
 }
 
@@ -185,7 +186,8 @@ function App() {
         <Router>
           <Suspense fallback={null}>
             <Routes>
-              <Route path="/" element={<Login />} />
+              <Route path="/" element={<Landing />} />
+              <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/dashboard" element={<ProtectedRoute><DashboardRouter /></ProtectedRoute>} />
               <Route path="/staff" element={<ProtectedRoute><StaffList /></ProtectedRoute>} />

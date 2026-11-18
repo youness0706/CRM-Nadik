@@ -7,6 +7,11 @@ import sys
 
 DEBUG = False
 
+# Never allow production to generate a temporary secret. A generated secret
+# invalidates tokens after a restart and is unsafe for a client deployment.
+if not os.getenv('DJANGO_SECRET_KEY'):
+    raise Exception('DJANGO_SECRET_KEY is required in production')
+
 # Database — required at runtime in production. Vercel imports the WSGI
 # application without a management-command argument, so do not use argv to
 # decide whether the application needs a database configuration.

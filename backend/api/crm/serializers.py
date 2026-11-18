@@ -5,9 +5,9 @@ from trainers.models import Staff, Trainer, Payments, Article, Costs, Addedpay, 
 
 class StaffSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username')
-    first_name = serializers.CharField(source='user.first_name', required=False)
-    last_name = serializers.CharField(source='user.last_name', required=False)
-    email = serializers.EmailField(source='user.email')
+    first_name = serializers.CharField(source='user.first_name', required=False, allow_blank=True)
+    last_name = serializers.CharField(source='user.last_name', required=False, allow_blank=True)
+    email = serializers.EmailField(source='user.email', required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, required=False)
 
     class Meta:
@@ -62,10 +62,14 @@ class StaffSerializer(serializers.ModelSerializer):
         if 'user' in validated_data:
             user_data = validated_data.pop('user')
             user = instance.user
-            user.username = user_data.get('username', user.username)
-            user.email = user_data.get('email', user.email)
-            user.first_name = user_data.get('first_name', user.first_name)
-            user.last_name = user_data.get('last_name', user.last_name)
+            if 'username' in user_data:
+                user.username = user_data['username']
+            if 'email' in user_data:
+                user.email = user_data['email']
+            if 'first_name' in user_data:
+                user.first_name = user_data['first_name']
+            if 'last_name' in user_data:
+                user.last_name = user_data['last_name']
             user.save()
             
         password = validated_data.pop('password', None)

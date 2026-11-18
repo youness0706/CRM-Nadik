@@ -33,11 +33,44 @@ from trainers.models import (
 )
 from trainers.payments.invoice_views import download_payment_invoice
 from api.common.permissions import IsOrganizationActive
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
 from .serializers import (
     StaffSerializer, TrainerSerializer, TrainerCreateSerializer,
     PaymentSerializer, ArticleSerializer, CostsSerializer,
     AddedpaySerializer, TrainerDocumentSerializer,
 )
+
+
+def get_org_cache_version(org_id):
+    return cache.get(f'nadik:org_version:{org_id}') or 1
+
+
+def bump_org_cache(org_id):
+    if org_id:
+        try:
+            curr = cache.get(f'nadik:org_version:{org_id}') or 1
+            cache.set(f'nadik:org_version:{org_id}', curr + 1, timeout=86400)
+        except Exception:
+            pass
+
+
+@receiver([post_save, post_delete], sender=Payments)
+@receiver([post_save, post_delete], sender=Costs)
+@receiver([post_save, post_delete], sender=Addedpay)
+@receiver([post_save, post_delete], sender=Article)
+@receiver([post_save, post_delete], sender=Trainer)
+@receiver([post_save, post_delete], sender=Staff)
+def invalidate_org_cache_on_change(sender, instance, **kwargs):
+    org_id = getattr(instance, 'organization_id', None)
+    if org_id:
+        bump_org_cache(org_id)
+
+
+@receiver([post_save, post_delete], sender=OrganizationInfo)
+def invalidate_org_cache_on_org_change(sender, instance, **kwargs):
+    if instance.pk:
+        bump_org_cache(instance.pk)
 
 
 class BaseOrganizationViewSet(viewsets.ModelViewSet):
@@ -57,6 +90,17 @@ class BaseOrganizationViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         org = self.get_organization()
         serializer.save(organization=org)
+        bump_org_cache(org.pk)
+
+    def perform_update(self, serializer):
+        org = self.get_organization()
+        serializer.save()
+        bump_org_cache(org.pk)
+
+    def perform_destroy(self, instance):
+        org = self.get_organization()
+        instance.delete()
+        bump_org_cache(org.pk)
 
     def _bulk_delete(self, request):
         ids = request.data.get('ids') if isinstance(request.data, Mapping) else None
@@ -81,12 +125,15 @@ class BaseOrganizationViewSet(viewsets.ModelViewSet):
 
         with transaction.atomic():
             queryset.delete()
+        org = self.get_organization()
+        bump_org_cache(org.pk)
         return Response({'deleted': selected_count}, status=status.HTTP_200_OK)
 
 
 class StaffViewSet(BaseOrganizationViewSet):
-    queryset = Staff.objects.all().select_related('user')
+    queryset = Staff.objects.all().select_related('user').order_by('-id')
     serializer_class = StaffSerializer
+    ordering = ['-id']
 
     def get_permissions(self):
         # We need a custom permission to restrict mutation to admins
@@ -554,6 +601,7 @@ class PaymentViewSet(BaseOrganizationViewSet):
                 )
                 for trainer_id in trainer_ids
             ])
+            bump_org_cache(organization.pk)
         return Response({'created': len(trainer_ids)}, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['get'], url_path='export/docx')
@@ -850,8 +898,9 @@ def dashboard_stats(request):
     except Staff.DoesNotExist:
         return Response({'error': 'No organization found'}, status=403)
 
-    cache_key = f'nadik:dashboard:v2:organization:{org.pk}'
-    user_cache_key = f'nadik:dashboard:v2:user:{request.user.pk}'
+    v = get_org_cache_version(org.pk)
+    cache_key = f'nadik:dashboard:v3:organization:{org.pk}:v:{v}'
+    user_cache_key = f'nadik:dashboard:v3:user:{request.user.pk}:v:{v}'
     cached_stats = cache.get(user_cache_key) or cache.get(cache_key)
     if cached_stats is not None:
         return Response(cached_stats)
@@ -923,6 +972,9 @@ def dashboard_stats(request):
     sub_info = {
         'status': org.subscription_status,
         'days_remaining': org.days_remaining,
+        # Keep the signed value for warning banners. days_remaining is
+        # intentionally clamped at zero for quota-style displays.
+        'days_until_expiration': org.days_until_expiration,
         'is_active': org.is_active,
     }
 
@@ -1005,8 +1057,9 @@ def financial_summary(request):
     year_start_datetime = timezone.make_aware(datetime.combine(year_start, datetime.min.time()))
     next_year_start_datetime = timezone.make_aware(datetime.combine(next_year_start, datetime.min.time()))
 
-    cache_key = f'nadik:financial:v2:organization:{org.pk}:year:{year}'
-    user_cache_key = f'nadik:financial:v2:user:{request.user.pk}:year:{year}'
+    v = get_org_cache_version(org.pk)
+    cache_key = f'nadik:financial:v3:organization:{org.pk}:v:{v}:year:{year}'
+    user_cache_key = f'nadik:financial:v3:user:{request.user.pk}:v:{v}:year:{year}'
     cached_summary = cache.get(user_cache_key) or cache.get(cache_key)
     if cached_summary is not None:
         return Response(cached_summary)

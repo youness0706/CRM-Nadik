@@ -3,11 +3,13 @@ from rest_framework.test import APIClient
 from rest_framework import status
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.core.cache import cache
 from trainers.models import Addedpay, Costs, OrganizationInfo, Payments, Staff, Trainer
 
 
 class CRMIntegrationTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.client = APIClient()
 
         # Org 1 and User 1
